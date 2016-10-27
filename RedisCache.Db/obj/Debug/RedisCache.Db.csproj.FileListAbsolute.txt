@@ -1,0 +1,12 @@
+E:\DEV\RedisCache\RedisCache.Db\obj\Debug\RedisCache.Db.csprojResolveAssemblyReference.cache
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\RedisCache.Db.exe.config
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\RedisCache.Db.exe
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\RedisCache.Db.pdb
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\Newtonsoft.Json.dll
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\RedisCache.Console.exe
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\StackExchange.Redis.dll
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\RedisCache.Console.pdb
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\Newtonsoft.Json.xml
+E:\DEV\RedisCache\RedisCache.Db\bin\Debug\StackExchange.Redis.xml
+E:\DEV\RedisCache\RedisCache.Db\obj\Debug\RedisCache.Db.exe
+E:\DEV\RedisCache\RedisCache.Db\obj\Debug\RedisCache.Db.pdb

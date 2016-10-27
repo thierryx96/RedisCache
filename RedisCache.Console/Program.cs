@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json.Linq;
+using RedisCache.Console.Messaging;
+using RedisCache.Console.Models;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
@@ -10,27 +12,7 @@ namespace RedisCache.Console
 {
     class Program
     {
-        class Thing
-        {
-            public string Text { get; set; }
-            public int Number { get; set; }
-        }
 
-        class Data
-        {
-            public Data(string name)
-            {
-                Name = name;
-                ListOfStrings = Enumerable.Range(0, 5).Select(i => $"str{i}").ToList();
-                ListOfThings = Enumerable.Range(0, 5).Select(i => new Thing() { Text = $"str{i}", Number = i }).ToList();
-                Thing = new Thing() { Text = "thingy", Number = 0 };
-            }
-
-            public string Name { get; set; }
-            public List<string> ListOfStrings { get; set; }
-            public List<Thing> ListOfThings { get; set; }
-            public Thing Thing { get; set; }
-        }
 
         static HashEntry[] GenerateRedisHash<T>(T obj)
         {
@@ -45,20 +27,27 @@ namespace RedisCache.Console
         {
 
             const int keysCount = 100;
-            ConnectionMultiplexer redis = ConnectionMultiplexer.Connect("localhost");
-            IDatabase db = redis.GetDatabase();
-
+            var connectionMultiplexer = RedisConnectionFactory.GetConnection();
+            var serializer = new Console.Serialization.JsonSerializer();
+            RedisCacheStore cache = new RedisCacheStore(serializer, connectionMultiplexer);
+            var sub = connectionMultiplexer.GetSubscriber();
             
+            sub.Subscribe("cs:update", (channel, message) => {
+                System.Console.Out.WriteLine("received:"+(string)message);
+                var payload = serializer.Deserialize<UpdateMessage<DataEntity>>((string)message);
+                cache.Set<DataEntity>(payload.Key, payload.Data, TimeSpan.FromHours(1));
+            });
+
             ConsoleKey mainKey = ConsoleKey.End;
             while (mainKey != ConsoleKey.Escape)
             {
                 if (mainKey >= ConsoleKey.D0 && mainKey <= ConsoleKey.D9)
                 {
                     var key = mainKey.ToString()[1];
-                    var value = db.StringGet($"cs:{key}");
+                    var value = cache.Get<DataEntity>($"cs:{key}");
 
                     //var data = db.HashGetAll($"cs:{key}");
-                    System.Console.Out.WriteLine(value);
+                    System.Console.Out.WriteLine("read:"+serializer.Serialize(value));
                 }
                 else
                 {
@@ -69,7 +58,7 @@ namespace RedisCache.Console
                                 for (int i = 0; i < keysCount; i++)
                                 {
                                     // GenerateRedisHash(new Data($"Thingy#{i}"))
-                                    db.StringSet($"cs:{i}", JObject.FromObject(new Data($"Thingy#{i}")).ToString());
+                                    cache.Set<DataEntity>($"cs:{i}", new DataEntity($"Thingy#{i}"), TimeSpan.FromHours(1));
                                 }
                             }
                             break;

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace RedisCache.Console
 {
-    class RedisConnectionFactory
+    public class RedisConnectionFactory
     {
         private static readonly Lazy<ConnectionMultiplexer> Connection;
         static RedisConnectionFactory()
