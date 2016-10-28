@@ -60,7 +60,7 @@
     <Compile Include="Store\RedisCacheStore.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Connection\RedisConnectionFactory.cs" />
+    <Compile Include="Connection\RedisConnectionProvider.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

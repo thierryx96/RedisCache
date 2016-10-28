@@ -3,7 +3,6 @@ build_artifacts/*
 build_temp/*
 *.suo
 *.user
-packages
 *.dotCover
 
 *.ncrunch*

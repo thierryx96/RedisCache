@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace RedisCache.Console
 {
@@ -76,5 +77,65 @@ namespace RedisCache.Console
         {
             _database.KeyDelete(key);
         }
+        /*
+private readonly IDatabase _database;
+private readonly ISerializer _serializer;
+
+
+public RedisCacheStore(ISerializer serializer, IConnectionMultiplexer connectionMultiplexer)
+{
+    _database = connectionMultiplexer.GetDatabase();
+    _serializer = serializer;
+
+    // TODO(thierryr): learn this and implement if useful and applicable
+    // this can be used to direct read/write to a slave or master when redis instances are configured in such a way
+    //_readFlag = settings.PreferSlaveForRead ? CommandFlags.PreferSlave : CommandFlags.PreferMaster;
+
+}
+
+public static string GenerateRedisKey<T>(string itemKey)
+{
+    return $"{nameof(T).ToLowerInvariant()}:{itemKey}";
+}
+
+public bool ContainsKey<T>(string key)
+{
+    return _database.KeyExists(GenerateRedisKey<T>(key));
+}
+
+public void Remove<T>(string key)
+{
+    _database.KeyDelete(GenerateRedisKey<T>(key));
+}
+
+public void Add<T>(string key, T item, TimeSpan? slidingExpiryTimeout = null)
+{
+    _database.StringSet(GenerateRedisKey<T>(key), _serializer.Serialize(item), slidingExpiryTimeout);
+}
+
+public void AddRange<T>(IEnumerable<T> items, TimeSpan? slidingExpiryTimeout = null)
+{
+    _database.StringSet(GenerateRedisKey<T>(string.Empty), _serializer.Serialize(items), slidingExpiryTimeout);
+}
+
+public IEnumerable<T> GetRange<T>()
+{
+    var values = _database.StringGet(GenerateRedisKey<T>(string.Empty));
+    var jsonValues = new JArray(values.ToString());
+    return jsonValues.Select(item => (T)item.ToObject(typeof(T)));
+}
+
+public T Get<T>(string key)
+{
+    var value = _database.StringGet(GenerateRedisKey<T>(key));
+    if (!value.HasValue) return default(T);
+
+    //TODO(thierryr): HACK
+    var jsonValue = JToken.Parse(value.ToString());
+
+    return (T)jsonValue.ToObject(typeof(T));
+}
+
+*/
     }
 }
