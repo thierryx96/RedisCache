@@ -13,3 +13,4 @@
 * Redis C# Cache Example for MVC :https://ruhul.wordpress.com/2014/07/23/use-redis-as-cache-provider/
 * Redis Pub/Sub : http://toreaurstad.blogspot.com.au/2015/09/synchronizing-redis-local-caches-for.html
 * Cache Invalidation : http://stackoverflow.com/questions/1188587/cache-invalidation-is-there-a-general-solution
+* Cache Invalidation methods : http://sorentwo.com/2016/08/01/strategies-for-selective-cache-expiration.html
