@@ -39,7 +39,7 @@ namespace RedisCache.Store
             _keyExtractor = keyExtractor;
             _expiry = expiry;
             //_indexExtractors = indexExtractors;
-            _collectionName = $"{typeof(TValue).Name.ToLowerInvariant()}:master";
+            _collectionName = $"{typeof(TValue).Name.ToLowerInvariant()}";
 
             // TODO(thierryr): learn this and implement if useful and applicable
             // this can be used to direct read/write to a slave or master when redis instances are configured in such a way

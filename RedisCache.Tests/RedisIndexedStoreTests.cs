@@ -90,5 +90,34 @@ namespace RedisCache.Tests
             Assert.That(retrievedEntityIdAfterExpiry, Is.Null);
 
         }
+
+        [Test]
+        public async Task AddOrUpdate_WhenAnEntityIsAdded_ThenIndexMustBeChanged()
+        {
+            // arrange
+            var entity = new TestType1Entity { Name = "test", Id = "1" };
+
+            // act
+            await _cacheType1.AddOrUpdate(entity);
+            var retrievedEntity = await _cacheType1.GetValueByIndex("name", entity.Name);
+            var retrievedEntityId = await _cacheType1.GetKeyByIndex("name", entity.Name);
+
+            var entityChanged = new TestType1Entity { Name = "changed", Id = "1" };
+            await _cacheType1.AddOrUpdate(entityChanged);
+
+            retrievedEntity = await _cacheType1.GetValueByIndex("name", entity.Name);
+            retrievedEntityId = await _cacheType1.GetKeyByIndex("name", entity.Name);
+
+            var retrievedChangedEntity = await _cacheType1.GetValueByIndex("name", entityChanged.Name);
+            var retrievedChangedEntityId = await _cacheType1.GetKeyByIndex("name", entityChanged.Name);
+
+            // assert
+            Assert.That(retrievedEntityId, Is.Null);
+            Assert.That(retrievedEntity, Is.Null);
+            Assert.That(retrievedChangedEntityId, Is.EqualTo(entityChanged.Id));
+            Assert.That(retrievedChangedEntity.Name, Is.EqualTo(entityChanged.Name));
+        }
+
+
     }
 }

@@ -39,9 +39,8 @@ namespace RedisCache.Store
 
         private async Task SetIndex(string indexName, IEnumerable<TValue> items, Func<TValue, string> indexExtractor)
         {
-            var indexedValues = items.Select(item => new HashEntry(indexExtractor(item), _keyExtractor(item))).ToArray();
-
-            await _database.HashSetAsync(GenerateIndexName(indexName), indexedValues);
+            var indexedEntries = items.Select(item => new HashEntry(indexExtractor(item), _keyExtractor(item))).ToArray();
+            await _database.HashSetAsync(GenerateIndexName(indexName), indexedEntries);
 
             if (_expiry.HasValue)
             {
@@ -63,8 +62,11 @@ namespace RedisCache.Store
             await base.AddOrUpdate(item);
             foreach (var indexExtractor in _indexExtractors)
             {
+                await ClearIndexesForKey(_keyExtractor(item));
                 await SetIndex(indexExtractor.Key, new[] { item }, indexExtractor.Value);
+
             }
+
         }
 
 
@@ -82,9 +84,8 @@ namespace RedisCache.Store
             return await Get(key);
         }
 
-        public override async Task Remove(string key)
+        private async Task ClearIndexesForKey(string key)
         {
-            await base.Remove(key);
             foreach (var indexExtractor in _indexExtractors)
             {
                 var indexEntries = await _database.HashGetAllAsync(GenerateIndexName(indexExtractor.Key));
@@ -92,9 +93,14 @@ namespace RedisCache.Store
                 if (indexKey.HasValue)
                 {
                     await _database.HashDeleteAsync(GenerateIndexName(indexExtractor.Key), indexKey);
-
                 }
             }
+        }
+
+        public override async Task Remove(string key)
+        {
+            await base.Remove(key);
+            await ClearIndexesForKey(key);
         }
 
         public override async Task Flush()
