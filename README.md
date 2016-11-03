@@ -21,6 +21,8 @@
 
 ## Key Expiry Events
 
+http://www.redis.io/topics/notifications
+
 Keys with a time to live associated are expired by Redis in two ways:
 
 When the key is accessed by a command and is found to be expired.
@@ -28,17 +30,27 @@ Via a background system that looks for expired keys in background, incrementally
 
 The expired events are generated when a key is accessed and is found to be expired by one of the above systems, as a result there are no guarantees that the Redis server will be able to generate the expired event at the time the key time to live reaches the value of zero. If no command targets the key constantly, and there are many keys with a TTL associated, there can be a significant delay between the time the key time to live drops to zero, and the time the expired event is generated.
 
-Enabling KeySpace notifications
+Enabling KeySpace notifications (expiry only)
+
 ```
 CONFIG SET notify-keyspace-events Ex
 CONFIG GET notify-keyspace-events 
 ```
+
+All events (the former dos not seems to work)
+```
+CONFIG SET notify-keyspace-events AKE
+CONFIG GET notify-keyspace-events 
+```
+
 
 ```
 __keyevents@<database>__:<command> 
 ```
 
 ```C#
+// Using stackExchange.Redis
+
 using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localhost"))
 {
     IDatabase db = connection.GetDatabase();
@@ -54,3 +66,17 @@ using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localho
     );
 }
 ```
+
+
+## AWS
+
+	
+6379
+redis-nonprod2-001.e5mcg1.0001.apse2.cache.amazonaws.com
+
+
+
+
+## Remaining points 
+
+
