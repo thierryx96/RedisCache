@@ -28,6 +28,16 @@ Via a background system that looks for expired keys in background, incrementally
 
 The expired events are generated when a key is accessed and is found to be expired by one of the above systems, as a result there are no guarantees that the Redis server will be able to generate the expired event at the time the key time to live reaches the value of zero. If no command targets the key constantly, and there are many keys with a TTL associated, there can be a significant delay between the time the key time to live drops to zero, and the time the expired event is generated.
 
+Enabling KeySpace notifications
+```
+CONFIG SET notify-keyspace-events Ex
+CONFIG GET notify-keyspace-events 
+```
+
+```
+__keyevents@<database>__:<command> 
+```
+
 ```C#
 using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localhost"))
 {
