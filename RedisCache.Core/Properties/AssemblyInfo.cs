@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("RedisCache.Db")]
+[assembly: AssemblyTitle("RedisCache.Core")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("RedisCache.Db")]
+[assembly: AssemblyProduct("RedisCache.Core")]
 [assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("b6d26489-a915-4841-a8b9-4b19964c33e5")]
+[assembly: Guid("189fcc45-d3b9-40d9-8d1b-a7b1ce810b00")]
 
 // Version information for an assembly consists of the following four values:
 //

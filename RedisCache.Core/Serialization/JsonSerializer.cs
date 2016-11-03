@@ -1,16 +1,9 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
-using RedisCache.Console.Serialization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace RedisCache.Console.Serialization
+namespace RedisCache.Serialization
 {
-
     public class JsonSerializer : ISerializer
     {
         private readonly JsonSerializerSettings _settings;
@@ -21,7 +14,8 @@ namespace RedisCache.Console.Serialization
             {
                 ContractResolver = new CamelCasePropertyNamesContractResolver(),
                 NullValueHandling = NullValueHandling.Ignore,
-                DateTimeZoneHandling = DateTimeZoneHandling.Utc
+                DateTimeZoneHandling = DateTimeZoneHandling.Utc,
+                TypeNameHandling = TypeNameHandling.Objects
             };
 
             _settings.Converters.Add(new StringEnumConverter());
