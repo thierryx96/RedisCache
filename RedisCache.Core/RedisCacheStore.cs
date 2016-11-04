@@ -16,10 +16,9 @@ namespace RedisCache.Store
     /// HashSet's 1st Element Key : 'key1'
     /// HashSet's 2nd Element Key : 'key2'
     /// </summary>
-    public class RedisCacheStore<TValue>
+    public class RedisCacheStore<TValue> 
     {
         protected readonly ISerializer _serializer;
-
         protected readonly IDatabase _database;
         protected Func<TValue, string> _keyExtractor;
         protected readonly string _collectionRootName;
@@ -45,40 +44,19 @@ namespace RedisCache.Store
         protected string GenerateMasterName() => $"{_collectionRootName}:{CollectionMasterSuffix}";
         protected string GenerateDefinitionName() => $"{_collectionRootName}:{CollectionDefinitionSuffix}"; //TODO: use later to store collection metadata (such as is empty, last updated etc ...)
 
-
-        protected virtual async Task ApplySet(IDatabaseAsync database, IEnumerable<TValue> items)
+        public virtual async Task Flush()
         {
-            var entries = items.Select(item => new HashEntry(_keyExtractor(item), _serializer.Serialize(item))).ToArray();
-            await database.HashSetAsync(GenerateMasterName(), entries);
-            if (_expiry.HasValue)
-            {
-                await database.KeyExpireAsync(GenerateMasterName(), _expiry);
-            }
+            await _database.KeyDeleteAsync(GenerateMasterName());
         }
-
-        protected virtual async Task ApplyAddOrUpdate(IDatabaseAsync database, TValue item)
-        {
-            await database.HashSetAsync(GenerateMasterName(), _keyExtractor(item), _serializer.Serialize(item));
-            if (_expiry.HasValue)
-            {
-                await database.KeyExpireAsync(GenerateMasterName(), _expiry);
-            }
-        }
-
-        protected virtual async Task ApplyRemove(IDatabaseAsync database, string key)
-        {
-            await database.HashDeleteAsync(GenerateMasterName(), key);
-        }
-
-        protected virtual async Task ApplyFlush(IDatabaseAsync database)
-        {
-            await database.KeyDeleteAsync(GenerateMasterName());
-        }
-
 
         public virtual async Task Set(IEnumerable<TValue> items)
         {
-            await ApplySet(_database, items);
+            var entries = items.Select(item => new HashEntry(_keyExtractor(item), _serializer.Serialize(item))).ToArray();
+            await _database.HashSetAsync(GenerateMasterName(), entries);
+            if (_expiry.HasValue)
+            {
+                await _database.KeyExpireAsync(GenerateMasterName(), _expiry);
+            }
         }        
 
         public virtual async Task<TValue> Get(string key)
@@ -98,17 +76,16 @@ namespace RedisCache.Store
 
         public virtual async Task AddOrUpdate(TValue item)
         {
-            await ApplyAddOrUpdate(_database, item);
+            await _database.HashSetAsync(GenerateMasterName(), _keyExtractor(item), _serializer.Serialize(item));
+            if (_expiry.HasValue)
+            {
+                await _database.KeyExpireAsync(GenerateMasterName(), _expiry);
+            }
         }
 
         public virtual async Task Remove(string key)
         {
-            await ApplyRemove(_database, key);
-        }
-
-        public virtual async Task Flush()
-        {
-            await ApplyFlush(_database);
+            await _database.HashDeleteAsync(GenerateMasterName(), key);
         }
     }
 }
