@@ -303,9 +303,5 @@ namespace RedisCache.Tests
             Assert.That(entity2Found, Is.Null);
         }
 
-       
-
-        private static KeyValuePair<string, TestType1Entity> ToKeyValuePair(TestType1Entity entity) => new KeyValuePair<string, TestType1Entity>(entity.Id, entity);
-        private static KeyValuePair<string, TestType2Entity> ToKeyValuePair(TestType2Entity entity) => new KeyValuePair<string, TestType2Entity>(entity.Id, entity);
-    }
+     }
 }

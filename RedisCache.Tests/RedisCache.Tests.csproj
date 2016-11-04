@@ -63,7 +63,7 @@
     <Compile Include="RedisIndexedStoreDerivedTests.cs" />
     <Compile Include="RedisStoreTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TestHelpers.cs" />
+    <Compile Include="RedisStoreTestHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

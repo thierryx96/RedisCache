@@ -1,24 +1,21 @@
 ﻿using RedisCache.Serialization;
 using StackExchange.Redis;
 using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace RedisCache.Store
 {
-    /// <summary>
-    /// This version of a Redis store any entity type as a hashset, the key being the C# entity type
-    /// and the value being a dictionary of entities (of this type), with their specific domain key
-    /// Car : [ key1 -> (name : Toyota, wheels: 4), key2 -> (name : Subaru, wheels: 4) ]
-    /// HashSet's key : 'Car'
-    /// HashSet's 1st Element Key : 'key1'
-    /// HashSet's 2nd Element Key : 'key2'
-    /// </summary>
+    //TODO: bundle writes into transactions
+    //var tran = db.CreateTransaction();
+    //tran.AddCondition(Condition.HashNotExists(custKey, "UniqueID"));
+    //tran.HashSetAsync(custKey, "UniqueID", newId);
+    //bool committed = tran.Execute();
     public class RedisIndexedStore<TValue> : RedisCacheStore<TValue>
-    {
-       
-        private IDictionary<string, Func<TValue, string>> _indexExtractors;
+    {       
+        private readonly IDictionary<string, Func<TValue, string>> _indexExtractors;
 
         public RedisIndexedStore(
             IConnectionMultiplexer connectionMultiplexer, 
@@ -28,54 +25,23 @@ namespace RedisCache.Store
             TimeSpan? expiry) : base(connectionMultiplexer, serializer, keyExtractor, expiry)            
         {
              _indexExtractors = indexExtractors;
-
-            // TODO(thierryr): learn this and implement if useful and applicable
-            // this can be used to direct read/write to a slave or master when redis instances are configured in such a way
-            //_readFlag = settings.PreferSlaveForRead ? CommandFlags.PreferSlave : CommandFlags.PreferMaster;
-        }
-
-        private string GenerateIndexName(string indexName) => $"{this._collectionName}:{indexName.ToLowerInvariant()}";
-
-
-        private async Task SetIndex(string indexName, IEnumerable<TValue> items, Func<TValue, string> indexExtractor)
-        {
-            var indexedEntries = items.Select(item => new HashEntry(indexExtractor(item), _keyExtractor(item))).ToArray();
-            await _database.HashSetAsync(GenerateIndexName(indexName), indexedEntries);
-
-            if (_expiry.HasValue)
-            {
-                await _database.KeyExpireAsync(GenerateIndexName(indexName), _expiry);
-            }
-        }
-
-        public override async Task Set(IEnumerable<TValue> items)
-        {
-            await base.Set(items);
-            foreach (var indexExtractor in _indexExtractors)
-            {
-                await SetIndex(indexExtractor.Key, items, indexExtractor.Value);
-            }            
-        }
-
-        public override async Task AddOrUpdate(TValue item)
-        {
-            await base.AddOrUpdate(item);
-            foreach (var indexExtractor in _indexExtractors)
-            {
-                await ClearIndexesForKey(_keyExtractor(item));
-                await SetIndex(indexExtractor.Key, new[] { item }, indexExtractor.Value);
-
-            }
-
         }
 
 
-        
+
+        private string GenerateIndexName(string indexName) => $"{this._collectionRootName}:idx_{indexName.ToLowerInvariant()}";
+        private string GenerateReverseIndexName(string indexName) => $"{this._collectionRootName}:rev_{indexName.ToLowerInvariant()}";
+
 
         public virtual async Task<string> GetKeyByIndex(string indexName, string value)
         {
             return await _database.HashGetAsync(GenerateIndexName(indexName), value);
         }
+
+        //private string GetIndexByKey(string indexName, string key)
+        //{
+        //    return _database.HashGet(GenerateReverseIndexName(indexName), key);
+        //}
 
         public virtual async Task<TValue> GetValueByIndex(string indexName, string value)
         {
@@ -84,33 +50,162 @@ namespace RedisCache.Store
             return await Get(key);
         }
 
-        private async Task ClearIndexesForKey(string key)
+
+        //private Task SetIndex(IDatabaseAsync database, string indexName, HashEntry[] entries, Func<TValue, string> indexExtractor)
+        //{
+        //    return database.HashSetAsync(GenerateIndexName(indexName), entries, CommandFlags.DemandMaster).ContinueWith(
+        //        (task) =>
+        //        {
+        //            if (_expiry.HasValue)
+        //            {
+        //                database.KeyExpireAsync(GenerateIndexName(indexName), _expiry);
+        //            }
+        //        });
+        //}
+
+        //private async Task ClearIndexesForKey(IDatabaseAsync database, string key)
+        //{
+        //    foreach (var indexExtractor in _indexExtractors)
+        //    {
+        //        var indexEntries = await _database.HashGetAllAsync(GenerateIndexName(indexExtractor.Key));
+        //        var indexKey = indexEntries.FirstOrDefault(entry => entry.Value.Equals(key)).Name;
+        //        if (indexKey.HasValue)
+        //        {
+        //            await database.HashDeleteAsync(GenerateIndexName(indexExtractor.Key), indexKey);
+        //        }
+        //    }
+        //}
+
+        public Task ExecuteSet(IEnumerable<TValue> items)
         {
-            foreach (var indexExtractor in _indexExtractors)
+            var mainItems = items.ToArray();
+            var mainEntries = mainItems.Select(item => new HashEntry(_keyExtractor(item), _serializer.Serialize(item))).ToArray();
+
+            var transaction = _database.CreateTransaction();
+
+            // set main
+            transaction.HashSetAsync(GenerateMasterName(), mainEntries);
+            if (_expiry.HasValue)
             {
-                var indexEntries = await _database.HashGetAllAsync(GenerateIndexName(indexExtractor.Key));
-                var indexKey = indexEntries.FirstOrDefault(entry => entry.Value.Equals(key)).Name;
-                if (indexKey.HasValue)
+                _database.KeyExpireAsync(GenerateMasterName(), _expiry);
+            }
+
+            // set indexes
+            foreach (var index in _indexExtractors)
+            {
+                var indexName = GenerateIndexName(index.Key);
+                var reverseIndexName = GenerateReverseIndexName(index.Key);
+
+                var indexedEntries = mainItems.Select(item => new HashEntry(index.Value(item), _keyExtractor(item))).ToArray();
+                var reverseIndexesEntries = mainItems.Select(item => new HashEntry(_keyExtractor(item), index.Value(item))).ToArray();
+
+                transaction.HashSetAsync(indexName, indexedEntries);
+                transaction.HashSetAsync(indexName, reverseIndexesEntries);
+
+                if (_expiry.HasValue)
                 {
-                    await _database.HashDeleteAsync(GenerateIndexName(indexExtractor.Key), indexKey);
+                    _database.KeyExpireAsync(indexName, _expiry);
+                    _database.KeyExpireAsync(reverseIndexName, _expiry);
                 }
             }
+
+            return transaction.ExecuteAsync();
         }
 
-        public override async Task Remove(string key)
-        {
-            await base.Remove(key);
-            await ClearIndexesForKey(key);
-        }
 
-        public override async Task Flush()
+        public Task<bool> ExecuteAddOrUpdate(TValue item)
         {
-            await base.Flush();
-            foreach (var indexExtractor in _indexExtractors)
+            var key = _keyExtractor(item);
+            // fetch impacted indexes (name -> key)
+            var impactedIndexEntries = _indexExtractors
+                .ToDictionary(index => index.Key,
+                    index => _database.HashGet(GenerateReverseIndexName(index.Key), key));
+
+            var transaction = _database.CreateTransaction();
+
+            // add main
+            transaction.HashSetAsync(GenerateMasterName(), key, _serializer.Serialize(item));
+
+            foreach (var indexEntry in impactedIndexEntries)
             {
-                await _database.KeyDeleteAsync(GenerateIndexName(indexExtractor.Key));
+
+                var indexName = GenerateIndexName(indexEntry.Key);
+                var reverseName = GenerateReverseIndexName(indexEntry.Key);
+
+                // remove indexes entries
+                if (indexEntry.Value.HasValue)
+                {
+                    transaction.HashDeleteAsync(indexName, indexEntry.Value);
+                    transaction.HashDeleteAsync(reverseName, key);
+                }
+
+                // add new entries
+                var newIndexValue = _indexExtractors[indexEntry.Key](item);
+
+                transaction.HashSetAsync(indexName, newIndexValue, key);
+                transaction.HashSetAsync(reverseName, key, newIndexValue);
+
+                // expiry
+                if (_expiry.HasValue)
+                {
+                    _database.KeyExpireAsync(indexName, _expiry);
+                    _database.KeyExpireAsync(reverseName, _expiry);
+                }
+
             }
 
+            // main expiry
+
+            if (_expiry.HasValue)
+            {
+                transaction.KeyExpireAsync(GenerateMasterName(), _expiry);
+            }
+
+            return transaction.ExecuteAsync();
         }
+
+
+        public Task<bool> ExecuteRemove(string key)
+        {
+            // fetch impacted indexes (name -> key)
+            var impactedIndexEntries = _indexExtractors.ToDictionary(index => index.Key,
+                index => _database.HashGet(GenerateReverseIndexName(index.Key), key));
+
+            var transaction = _database.CreateTransaction();
+             
+            // remove main
+            transaction.HashDeleteAsync(GenerateMasterName(), key);
+
+            // remove indexes entries
+            foreach (var indexEntries in impactedIndexEntries)
+            {
+                transaction.HashDeleteAsync(GenerateIndexName(indexEntries.Key), indexEntries.Value);
+                transaction.HashDeleteAsync(GenerateReverseIndexName(indexEntries.Key), key);
+            }
+
+            return transaction.ExecuteAsync();
+        }
+
+        public Task<bool> ExecuteFlush()
+        {
+            var transaction = _database.CreateTransaction();
+
+            // flush main
+            transaction.KeyDeleteAsync(GenerateMasterName());
+
+            foreach (var indexExtractor in _indexExtractors)
+            {
+                transaction.KeyDeleteAsync(GenerateIndexName(indexExtractor.Key));
+            }
+
+            return transaction.ExecuteAsync();
+        }
+
+        public new async Task Remove(string key) => await ExecuteRemove(key);
+        public new async Task AddOrUpdate(TValue item) => await ExecuteAddOrUpdate(item);
+        public new async Task Flush() => await ExecuteFlush();
+        public new async Task Set(IEnumerable<TValue> items) => await ExecuteSet(items);
+
+
     }
 }
