@@ -70,9 +70,6 @@ using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localho
 
 ## AWS
 
-	
-6379
-redis-nonprod2-001.e5mcg1.0001.apse2.cache.amazonaws.com
 
 
 
