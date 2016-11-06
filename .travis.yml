@@ -1,2 +1,5 @@
 language: csharp
 solution: RedisCache.sln
+install:
+  - nuget restore solution-name.sln
+
