@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/thierryx96/RedisCache.svg?branch=master)](https://travis-ci.org/thierryx96/RedisCache)
+
 # RedisCache
 
 ## Tools
