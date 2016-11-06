@@ -31,7 +31,7 @@ namespace RedisCache.Store
         {
             var foundIndex = _indexManagers.FirstOrDefault(index => string.Equals(indexName, index.Name, StringComparison.InvariantCultureIgnoreCase));
 
-            if (foundIndex == ) throw new ArgumentException($"A search by index must use a defined index. Index:'{indexName}' is not defined on this collection.", nameof(indexName));
+            if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{indexName}' is not defined on this collection.", nameof(indexName));
 
             return await foundIndex.GetMasterKeys(_database, value);
         }

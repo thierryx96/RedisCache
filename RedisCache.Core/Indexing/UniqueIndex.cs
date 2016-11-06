@@ -44,10 +44,6 @@ namespace RedisCache.Indexing
             Set(context, new[] { newItem });
         }
 
-        // cleanup existing
-
-
-        // add new indexed values
 
         public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value)
         {
@@ -59,9 +55,7 @@ namespace RedisCache.Indexing
             IDatabaseAsync context,
             IEnumerable<TValue> items)
         {
-            // remove indexes entries
             context.HashDeleteAsync(_hashIndexCollectionName, items.Select(item => (RedisValue)_indexKeyExtractor(item)).ToArray());
-            //return context;
         }
 
         public void Flush(

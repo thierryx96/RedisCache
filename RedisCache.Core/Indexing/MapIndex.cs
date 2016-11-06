@@ -49,11 +49,6 @@ namespace RedisCache.Indexing
             }
         }
 
-        // cleanup existing
-
-
-        // add new indexed values
-
         public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string indexKey)
         {
             var masterKeys = await context.SetMembersAsync(GenerateSetCollectionName(indexKey));
