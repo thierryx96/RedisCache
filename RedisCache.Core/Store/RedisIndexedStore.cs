@@ -8,10 +8,13 @@ using System.Threading.Tasks;
 
 namespace RedisCache.Store
 {
-    public class RedisIndexedStore<TValue> : RedisCacheStore<TValue>
+    /// <summary>
+    /// This store support basic indexes, and maintain them in a transactional fashion
+    /// </summary>
+    /// <typeparam name="TValue"></typeparam>
+    public class RedisIndexedStore<TValue> : RedisCacheStore<TValue>, IRedisIndexedStore<TValue>
     {       
         private readonly IEnumerable<IIndex<TValue>>  _indexManagers;
-        //private readonly IRedisReadStore<TValue> _masterReadStore;
 
         public RedisIndexedStore(
             IConnectionMultiplexer connectionMultiplexer, 
@@ -20,8 +23,6 @@ namespace RedisCache.Store
             IEnumerable<IndexDefinition<TValue>> indexDefinitions,
             TimeSpan? expiry) : base(connectionMultiplexer, serializer, keyExtractor, expiry)            
         {
-           // _masterReadStore = new RedisCacheStore<TValue>(connectionMultiplexer, serializer, keyExtractor, expiry);
-
             var indexFactory = new IndexFactory<TValue>(keyExtractor, _collectionRootName, expiry);
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
         }

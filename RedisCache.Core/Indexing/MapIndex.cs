@@ -74,7 +74,7 @@ namespace RedisCache.Indexing
             IDatabaseAsync context
             )
         {
-            //var collectionNames = context
+            // Not at problem if the index is stale as long as the master key is removed.
         }
 
         public void Set(
