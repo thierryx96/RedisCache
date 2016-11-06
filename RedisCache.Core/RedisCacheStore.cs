@@ -16,7 +16,7 @@ namespace RedisCache.Store
     /// HashSet's 1st Element Key : 'key1'
     /// HashSet's 2nd Element Key : 'key2'
     /// </summary>
-    public class RedisCacheStore<TValue> 
+    public class RedisCacheStore<TValue> : IRedisStore<TValue>, IRedisWriteStore<TValue>, IRedisReadStore<TValue>
     {
         protected readonly ISerializer _serializer;
         protected readonly IDatabase _database;
@@ -27,6 +27,9 @@ namespace RedisCache.Store
         private const string CollectionMasterSuffix = "master";
         private const string CollectionDefinitionSuffix = "def";
 
+        public Func<TValue, string> MasterKeyExtractor => _keyExtractor;
+        public string CollectionRootName => _collectionRootName;
+        public TimeSpan? Expiry => _expiry;
 
         public RedisCacheStore(
             IConnectionMultiplexer connectionMultiplexer, 

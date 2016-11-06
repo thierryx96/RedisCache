@@ -50,6 +50,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Configuration\IndexDefinition.cs" />
+    <Compile Include="Indexing\IIndex.cs" />
+    <Compile Include="Indexing\IndexFactory.cs" />
+    <Compile Include="Indexing\MapIndex.cs" />
+    <Compile Include="Indexing\UniqueIndex.cs" />
+    <Compile Include="RedisDataHelpers.cs" />
     <Compile Include="RedisIndexedStore.cs" />
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\JsonSerializer.cs" />
