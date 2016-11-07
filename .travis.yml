@@ -1,7 +1,7 @@
 language: csharp
 solution: RedisCache.sln
 install:
-  - nuget restore solution-name.sln
+  - nuget restore RedisCache.sln -Verbosity detailed
   - nuget install NUnit.Runners -Version 2.6.4 -OutputDirectory testrunner
 script:
   - xbuild /p:Configuration=Release RedisCache.sln
