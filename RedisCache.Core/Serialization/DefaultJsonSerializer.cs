@@ -4,11 +4,11 @@ using Newtonsoft.Json.Serialization;
 
 namespace RedisCache.Serialization
 {
-    public class JsonSerializer : ISerializer
+    public class DefaultJsonSerializer : ISerializer
     {
         private readonly JsonSerializerSettings _settings;
 
-        public JsonSerializer()
+        public DefaultJsonSerializer()
         {
             _settings = new JsonSerializerSettings
             {

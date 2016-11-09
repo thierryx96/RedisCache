@@ -22,26 +22,26 @@ namespace RedisCache.Store
         protected readonly IDatabase _database;
         protected Func<TValue, string> _keyExtractor;
         protected readonly string _collectionRootName;
-        protected readonly TimeSpan? _expiry;
 
         private const string CollectionMasterSuffix = "master";
         private const string CollectionDefinitionSuffix = "def";
 
         public Func<TValue, string> MasterKeyExtractor => _keyExtractor;
         public string CollectionRootName => _collectionRootName;
+        protected TimeSpan? _expiry ;
         public TimeSpan? Expiry => _expiry;
-
         public RedisCacheStore(
             IConnectionMultiplexer connectionMultiplexer, 
             ISerializer serializer,
             Func<TValue, string> keyExtractor,
-            TimeSpan? expiry)
+            string collectionName = null,
+            TimeSpan? expiryExtractor = null)
         {
             _database = connectionMultiplexer.GetDatabase();
             _serializer = serializer;
             _keyExtractor = keyExtractor;
-            _expiry = expiry;
-            _collectionRootName = $"{typeof(TValue).Name.ToLowerInvariant()}";
+            _expiry = expiryExtractor;
+            _collectionRootName = $"{(collectionName??typeof(TValue).Name).ToLowerInvariant()}";
         }
 
         protected string GenerateMasterName() => $"{_collectionRootName}:{CollectionMasterSuffix}";

@@ -21,7 +21,9 @@ namespace RedisCache.Store
             ISerializer serializer,
             Func<TValue, string> keyExtractor,
             IEnumerable<IndexDefinition<TValue>> indexDefinitions,
-            TimeSpan? expiry) : base(connectionMultiplexer, serializer, keyExtractor, expiry)            
+            string masterCollectionName = null,
+            TimeSpan? expiry = null
+            ) : base(connectionMultiplexer, serializer, keyExtractor, masterCollectionName, expiry)            
         {
             var indexFactory = new IndexFactory<TValue>(keyExtractor, _collectionRootName, expiry);
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
