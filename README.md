@@ -35,16 +35,22 @@ The expired events are generated when a key is accessed and is found to be expir
 Enabling KeySpace notifications (expiry only)
 
 ```
-CONFIG SET notify-keyspace-events Ex
+CONFIG SET notify-keyspace-events xKE
 CONFIG GET notify-keyspace-events 
 ```
 
 All events (the former dos not seems to work)
 ```
-CONFIG SET notify-keyspace-events AKE
+CONFIG SET notify-keyspace-events AKE 
 CONFIG GET notify-keyspace-events 
 ```
 
+Test it with Redis Cli
+```
+PSUBSCRIBE __keyspace@0__:*
+```
+
+C# (StackExchange)
 
 ```
 __keyevents@<database>__:<command> 
@@ -76,6 +82,9 @@ using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localho
 
 
 
-## Remaining points 
+## Redis Scritping
+
+https://www.compose.com/articles/a-quick-guide-to-redis-lua-scripting/
+
 
 
