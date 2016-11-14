@@ -1,35 +1,41 @@
-﻿using RedisCache.Indexing;
-using RedisCache.Serialization;
-using StackExchange.Redis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Configuration;
+using PEL.Framework.Redis.Extensions;
+using PEL.Framework.Redis.Indexing;
+using PEL.Framework.Redis.Serialization;
+using StackExchange.Redis;
 
-namespace RedisCache.Store
+#pragma warning disable 4014 //disabled, it on purpose that awaitable must not be awaited on transactions (https://github.com/StackExchange/StackExchange.Redis/blob/master/Docs/Transactions.md)
+
+namespace PEL.Framework.Redis.Store
 {
     /// <summary>
     /// This store support basic indexes, and maintain them in a transactional fashion
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
-    public class RedisIndexedStore<TValue> : RedisCacheStore<TValue>, IRedisIndexedStore<TValue>
-    {       
-        private readonly IEnumerable<IIndex<TValue>>  _indexManagers;
+    public class RedisIndexedStore<TValue> : RedisStore<TValue>, IRedisIndexedStoreAsync<TValue>
+    {
+        private readonly IEnumerable<IIndex<TValue>> _indexManagers;
 
         public RedisIndexedStore(
-            IConnectionMultiplexer connectionMultiplexer, 
+            IConnectionMultiplexer connectionMultiplexer,
             ISerializer serializer,
-            Func<TValue, string> keyExtractor,
+            Func<TValue, string> masterKeyExtractor,
             IEnumerable<IndexDefinition<TValue>> indexDefinitions,
-            string masterCollectionName = null,
-            TimeSpan? expiry = null
-            ) : base(connectionMultiplexer, serializer, keyExtractor, masterCollectionName, expiry)            
+            string collectionName = null,
+            TimeSpan? expiry = null) : base(connectionMultiplexer, serializer, masterKeyExtractor, collectionName, expiry)
         {
-            var indexFactory = new IndexFactory<TValue>(keyExtractor, _collectionRootName, expiry);
+            var indexFactory = new IndexFactory<TValue>(masterKeyExtractor, _collectionRootName, expiry);
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
         }
 
-        public async Task<IEnumerable<string>> GetKeysByIndex(string indexName, string value)
+        /// <summary>
+        /// Get a master key by an indexed value
+        /// </summary>
+        public async Task<IEnumerable<string>> GetAllKeysByIndexAsync(string indexName, string value)
         {
             var foundIndex = _indexManagers.FirstOrDefault(index => string.Equals(indexName, index.Name, StringComparison.InvariantCultureIgnoreCase));
 
@@ -38,21 +44,24 @@ namespace RedisCache.Store
             return await foundIndex.GetMasterKeys(_database, value);
         }
 
-        public async Task<IEnumerable<TValue>> GetItemsByIndex(string indexName, string value)
+        /// <summary>
+        /// Get a stroed item by an indexed value
+        /// </summary>
+        public async Task<IEnumerable<TValue>> GetAllByIndexAsync(string indexName, string value)
         {
-            var masterKeys = await GetKeysByIndex(indexName, value);
-            List<TValue> values = new List<TValue>();
+            var masterKeys = await GetAllKeysByIndexAsync(indexName, value);
+            var values = new List<TValue>();
             foreach (var key in masterKeys)
             {
-                values.Add(await base.Get(key));
+                values.Add(await GetAsync(key));
             }
 
             return values;
         }
 
-        public new async Task Set(IEnumerable<TValue> items)
+        public new async Task SetAsync(IEnumerable<TValue> items)
         {
-            var mainEntries = items.ToHashEntries(_keyExtractor, item => _serializer.Serialize(item));
+            var mainEntries = items.ToHashEntries(_masterKeyExtractor, item => _serializer.Serialize(item));
 
             var transaction = _database.CreateTransaction();
 
@@ -69,11 +78,10 @@ namespace RedisCache.Store
                 index.Set(transaction, items);
             }
 
-            await transaction.ExecuteAsync(); 
+            await transaction.ExecuteAsync();
         }
-        
 
-        public override async Task Flush()
+        public override async Task ClearAsync()
         {
             var transaction = _database.CreateTransaction();
 
@@ -82,20 +90,21 @@ namespace RedisCache.Store
 
             foreach (var index in _indexManagers)
             {
-                index.Flush(transaction);
+                index.Clear(transaction);
             }
 
             await transaction.ExecuteAsync();
         }
 
-        public override async Task Remove(string key){ 
-            var item = await base.Get(key);
+        public override async Task RemoveAsync(string key)
+        {
+            var item = await GetAsync(key);
 
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
             {
-                index.Remove(transaction, new TValue[] { item });
+                index.Remove(transaction, new[] { item });
             }
 
             transaction.HashDeleteAsync(GenerateMasterName(), key);
@@ -103,8 +112,9 @@ namespace RedisCache.Store
             await transaction.ExecuteAsync();
         }
 
-        public override async Task AddOrUpdate(TValue item){
-            var oldItem = await base.Get(_keyExtractor(item));
+        public override async Task AddOrUpdateAsync(TValue item)
+        {
+            var oldItem = await GetAsync(_masterKeyExtractor(item));
 
             var transaction = _database.CreateTransaction();
 
@@ -114,7 +124,7 @@ namespace RedisCache.Store
             }
 
             // set main
-            transaction.HashSetAsync(GenerateMasterName(), _keyExtractor(item), _serializer.Serialize(item));
+            transaction.HashSetAsync(GenerateMasterName(), _masterKeyExtractor(item), _serializer.Serialize(item));
             if (_expiry.HasValue)
             {
                 transaction.KeyExpireAsync(GenerateMasterName(), _expiry);
@@ -122,9 +132,5 @@ namespace RedisCache.Store
 
             await transaction.ExecuteAsync();
         }
-
-
-
     }
 }
- 
