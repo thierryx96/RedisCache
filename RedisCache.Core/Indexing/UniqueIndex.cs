@@ -11,12 +11,12 @@ namespace RedisCache.Indexing
     {
         private TimeSpan? _expiry;
         public string Name { get; private set; }
-        public Func<TValue, string> _indexKeyExtractor;
+        public Func<TValue, string> IndexKeyExtractor;
 
-        public Func<TValue, string> KeyExtractor => _indexKeyExtractor;
-        public string _hashIndexCollectionName;
+        public Func<TValue, string> KeyExtractor => IndexKeyExtractor;
+        public string HashIndexCollectionName;
 
-        private Func<TValue, string> _masterKeyExtractor;
+        private readonly Func<TValue, string> _masterKeyExtractor;
 
         public UniqueIndex(
             string indexName,
@@ -26,9 +26,9 @@ namespace RedisCache.Indexing
             TimeSpan? expiry)
         {
             Name = indexName;
-            _indexKeyExtractor = indexKeyExtractor;
+            IndexKeyExtractor = indexKeyExtractor;
             _masterKeyExtractor = masterKeyExtractor;
-            _hashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
+            HashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
             _expiry = expiry;
         }
 
@@ -37,17 +37,17 @@ namespace RedisCache.Indexing
             TValue newItem,
             TValue oldItem)
         {
-            if (oldItem != null && !_indexKeyExtractor(newItem).Equals(_indexKeyExtractor(oldItem)))
+            if (oldItem != null && !IndexKeyExtractor(newItem).Equals(IndexKeyExtractor(oldItem)))
             {
                 Remove(context, new[] { oldItem });
-            };
+            }
             Set(context, new[] { newItem });
         }
 
 
         public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value)
         {
-            var keyFound = await context.HashGetAsync(_hashIndexCollectionName, value);
+            var keyFound = await context.HashGetAsync(HashIndexCollectionName, value);
             return keyFound.HasValue ? new string[] { keyFound } : new string[0];
         }
 
@@ -55,14 +55,14 @@ namespace RedisCache.Indexing
             IDatabaseAsync context,
             IEnumerable<TValue> items)
         {
-            context.HashDeleteAsync(_hashIndexCollectionName, items.Select(item => (RedisValue)_indexKeyExtractor(item)).ToArray());
+            context.HashDeleteAsync(HashIndexCollectionName, items.Select(IndexKeyExtractor).ToHashKeys());
         }
 
-        public void Flush(
+        public void Clear(
             IDatabaseAsync context
             )
         {
-            context.KeyDeleteAsync(_hashIndexCollectionName);
+            context.KeyDeleteAsync(HashIndexCollectionName);
         }
 
         public void Set(
@@ -70,9 +70,9 @@ namespace RedisCache.Indexing
             IEnumerable<TValue> items
             )
         {
-            var indexName = _hashIndexCollectionName;
+            var indexName = HashIndexCollectionName;
 
-            context.HashSetAsync(indexName, items.ToHashEntries(_indexKeyExtractor, _masterKeyExtractor));
+            context.HashSetAsync(indexName, items.ToHashEntries(IndexKeyExtractor, _masterKeyExtractor));
 
             if (_expiry.HasValue)
             {

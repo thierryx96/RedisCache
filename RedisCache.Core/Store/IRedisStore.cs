@@ -1,20 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace RedisCache
+namespace RedisCache.Store
 {
-    public interface IRedisWriteStore<TValue>
+    public interface IRedisWriteStore<in TValue>
     {
-        Task Flush();
+        Task Clear();
 
         Task Set(IEnumerable<TValue> items);
 
         Task AddOrUpdate(TValue item);
 
-        Task Remove(string key);
+        Task Remove(params string[] keys);
+
     }
 
     public interface IRedisReadStore<TValue>
@@ -24,7 +23,7 @@ namespace RedisCache
         Task<IEnumerable<TValue>> GetAll();
     }
 
-    public interface IRedisStore<TValue>
+    public interface IRedisStore<in TValue>
     {
         Func<TValue, string> MasterKeyExtractor { get; }
         string CollectionRootName { get; }

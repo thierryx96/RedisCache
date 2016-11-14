@@ -3,8 +3,10 @@ using RedisCache.Serialization;
 using StackExchange.Redis;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+#pragma warning disable 4014
 
 namespace RedisCache.Store
 {
@@ -22,10 +24,18 @@ namespace RedisCache.Store
             Func<TValue, string> keyExtractor,
             IEnumerable<IndexDefinition<TValue>> indexDefinitions,
             string masterCollectionName = null,
-            TimeSpan? expiry = null
-            ) : base(connectionMultiplexer, serializer, keyExtractor, masterCollectionName, expiry)            
+            TimeSpan? expiry = null,
+            Func<TValue, string> keyExpiryExtractor = null,
+            int dbId = 0
+            ) : base(connectionMultiplexer, serializer, keyExtractor, masterCollectionName, expiry, dbId)            
         {
             var indexFactory = new IndexFactory<TValue>(keyExtractor, _collectionRootName, expiry);
+
+            //if (keyExpiryExtractor != null)
+            //{
+            //    var keyExpiry = MasterKeyExtractor
+            //}
+
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
         }
 
@@ -44,7 +54,11 @@ namespace RedisCache.Store
             List<TValue> values = new List<TValue>();
             foreach (var key in masterKeys)
             {
-                values.Add(await base.Get(key));
+                var item = await base.Get(key);
+                if (!item.Equals(default(TValue)))
+                {
+                    values.Add(item);
+                }
             }
 
             return values;
@@ -73,7 +87,7 @@ namespace RedisCache.Store
         }
         
 
-        public override async Task Flush()
+        public override async Task Clear()
         {
             var transaction = _database.CreateTransaction();
 
@@ -82,23 +96,28 @@ namespace RedisCache.Store
 
             foreach (var index in _indexManagers)
             {
-                index.Flush(transaction);
+                index.Clear(transaction);
             }
 
             await transaction.ExecuteAsync();
         }
 
-        public override async Task Remove(string key){ 
-            var item = await base.Get(key);
+        public override async Task Remove(params string[] keys)
+        {
+            IList<TValue> items = new List<TValue>();
+            foreach (var key in keys)
+            {
+                items.Add(await base.Get(key));
+            }
 
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
             {
-                index.Remove(transaction, new TValue[] { item });
+                index.Remove(transaction, items);
             }
 
-            transaction.HashDeleteAsync(GenerateMasterName(), key);
+            await _database.HashDeleteAsync(GenerateMasterName(), keys.ToHashKeys());
 
             await transaction.ExecuteAsync();
         }

@@ -50,7 +50,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\IDataWriter.cs" />
     <Compile Include="Configuration\IndexDefinition.cs" />
+    <Compile Include="Database\RedisDatabaseManager.cs" />
+    <Compile Include="Expiry\ExpiryMessageSubscriber.cs" />
+    <Compile Include="Expiry\MasterKeysExpiryStore.cs" />
     <Compile Include="Store\IRedisIndexedStore.cs" />
     <Compile Include="Store\IRedisStore.cs" />
     <Compile Include="Indexing\IIndex.cs" />
