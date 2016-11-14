@@ -1,41 +1,35 @@
-﻿using RedisCache.Indexing;
-using RedisCache.Serialization;
-using StackExchange.Redis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Configuration;
+using PEL.Framework.Redis.Extensions;
+using PEL.Framework.Redis.Indexing;
+using PEL.Framework.Redis.Serialization;
+using StackExchange.Redis;
 #pragma warning disable 4014
 
-namespace RedisCache.Store
+
+namespace PEL.Framework.Redis.Store
 {
     /// <summary>
     /// This store support basic indexes, and maintain them in a transactional fashion
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
-    public class RedisIndexedStore<TValue> : RedisCacheStore<TValue>, IRedisIndexedStore<TValue>
-    {       
-        private readonly IEnumerable<IIndex<TValue>>  _indexManagers;
+    public class RedisIndexedStore<TValue> : RedisStore<TValue>, IRedisIndexedStoreAsync<TValue>
+    {
+        private readonly IEnumerable<IIndex<TValue>> _indexManagers;
 
         public RedisIndexedStore(
-            IConnectionMultiplexer connectionMultiplexer, 
+            IConnectionMultiplexer connectionMultiplexer,
             ISerializer serializer,
-            Func<TValue, string> keyExtractor,
+            Func<TValue, string> masterKeyExtractor,
             IEnumerable<IndexDefinition<TValue>> indexDefinitions,
-            string masterCollectionName = null,
-            TimeSpan? expiry = null,
-            Func<TValue, string> keyExpiryExtractor = null,
-            int dbId = 0
-            ) : base(connectionMultiplexer, serializer, keyExtractor, masterCollectionName, expiry, dbId)            
+            string collectionName = null,
+            TimeSpan? expiry = null) : base(connectionMultiplexer, serializer, masterKeyExtractor, collectionName, expiry)
         {
-            var indexFactory = new IndexFactory<TValue>(keyExtractor, _collectionRootName, expiry);
-
-            //if (keyExpiryExtractor != null)
-            //{
-            //    var keyExpiry = MasterKeyExtractor
-            //}
-
+            var indexFactory = new IndexFactory<TValue>(masterKeyExtractor, _collectionRootName, expiry);
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
         }
 
@@ -83,7 +77,7 @@ namespace RedisCache.Store
                 index.Set(transaction, items);
             }
 
-            await transaction.ExecuteAsync(); 
+            await transaction.ExecuteAsync();
         }
         
 
@@ -122,8 +116,9 @@ namespace RedisCache.Store
             await transaction.ExecuteAsync();
         }
 
-        public override async Task AddOrUpdate(TValue item){
-            var oldItem = await base.Get(_keyExtractor(item));
+        public override async Task AddOrUpdateAsync(TValue item)
+        {
+            var oldItem = await GetAsync(_masterKeyExtractor(item));
 
             var transaction = _database.CreateTransaction();
 
@@ -133,7 +128,7 @@ namespace RedisCache.Store
             }
 
             // set main
-            transaction.HashSetAsync(GenerateMasterName(), _keyExtractor(item), _serializer.Serialize(item));
+            transaction.HashSetAsync(GenerateMasterName(), _masterKeyExtractor(item), _serializer.Serialize(item));
             if (_expiry.HasValue)
             {
                 transaction.KeyExpireAsync(GenerateMasterName(), _expiry);
@@ -141,9 +136,5 @@ namespace RedisCache.Store
 
             await transaction.ExecuteAsync();
         }
-
-
-
     }
 }
- 

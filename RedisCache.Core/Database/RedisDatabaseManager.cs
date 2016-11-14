@@ -1,44 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using StackExchange.Redis;
 
-namespace RedisCache.Database
+namespace PEL.Framework.Redis.Database
 {
-    public class RedisDatabaseManager
+    /// <summary>
+    /// Utils methods on a Sever and Database level
+    /// </summary>
+    internal class RedisDatabaseManager
     {
-        private readonly IConnectionMultiplexer _connection;
-        private readonly int _dbId;
+        private readonly IRedisDatabaseConnector _connector;
 
-        public RedisDatabaseManager(IConnectionMultiplexer connection, int dbId = 0)
+        public RedisDatabaseManager(IRedisDatabaseConnector connector)
         {
-            _connection = connection;
-            _dbId = dbId;
+            _connector = connector;
         }
 
-        public async Task Flush()
+        /// <summary>
+        /// Flush all the keys on the database
+        /// </summary>
+        /// <returns></returns>
+        public async Task FlushAll()
         {
-            foreach (var endPoint in _connection.GetEndPoints())
+            foreach (var endPoint in _connector.GetConnectedDatabase().Multiplexer.GetEndPoints())
             {
-                var server = _connection.GetServer(endPoint);
-                await server.FlushAllDatabasesAsync();
+                await _connector.GetConnectedDatabase().Multiplexer.GetServer(endPoint).FlushDatabaseAsync(database: _connector.GetConnectedDatabase().Database);
             }
         }
 
-        public IEnumerable<string> ScanKeys(string pattern)
+        /// <summary>
+        /// Search for the keys on a db given a pattern.
+        /// Extremely inefficient : should be used with care, as it scan the entire key space
+        /// </summary>
+        /// <param name="pattern"></param>
+        /// <returns></returns>
+        public IEnumerable<string> ScanKeys(string pattern = "*")
         {
-            foreach (var endPoint in _connection.GetEndPoints())
-            {
-                var server = _connection.GetServer(endPoint);
-                foreach (var key in server.Keys(_dbId, pattern))
-                {
-                    yield return key;
-                }
-            }
+            return
+                from endPoint in _connector.GetConnectedDatabase().Multiplexer.GetEndPoints()
+                from key in _connector.GetConnectedDatabase().Multiplexer.GetServer(endPoint).Keys(database: _connector.GetConnectedDatabase().Database, pattern: pattern)
+                select key.ToString();
         }
-
-
     }
 }
