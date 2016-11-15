@@ -31,29 +31,28 @@ Via a background system that looks for expired keys in background, incrementally
 
 The expired events are generated when a key is accessed and is found to be expired by one of the above systems, as a result there are no guarantees that the Redis server will be able to generate the expired event at the time the key time to live reaches the value of zero. If no command targets the key constantly, and there are many keys with a TTL associated, there can be a significant delay between the time the key time to live drops to zero, and the time the expired event is generated.
 
-Enabling KeySpace notifications (expiry only)
+*Enabling KeySpace notifications (expiry only)*
 
 ```
 CONFIG SET notify-keyspace-events xKE
 CONFIG GET notify-keyspace-events 
 ```
 
-All events (makes the whole system really chatty, not recommanded for production systems)
+*All events (makes the whole system really chatty, not recommanded for production systems)*
 ```
 CONFIG SET notify-keyspace-events AKE 
 CONFIG GET notify-keyspace-events 
 ```
 
-Test it with redis-cli (open a listener to event on db 0)
+
+*Test it with redis-cli (open a listener to event on db 0)*
 ```
-PSUBSCRIBE __keyspace@0__:*
+PSUBSCRIBE __keyspace@0__:*   
+
+PSUBSCRIBE __keyevents@<database>__:<command pattern> 
 ```
 
-With the StackExchange client (create and open a listener to events on db 0)
-
-```
-__keyevents@<database>__:<command> 
-```
+*With the StackExchange client (create and open a listener to events on db 0)*
 
 ```C#
 // Using stackExchange.Redis
