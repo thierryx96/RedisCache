@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace RedisCache
+namespace RedisCache.Store
 {
     public interface IRedisIndexedStore<TValue>
     {

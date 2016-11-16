@@ -8,9 +8,9 @@ namespace RedisCache.Indexing
 {
     public class IndexFactory<TValue>
     {
-        private TimeSpan? _expiry;
-        private string _masterCollectionRootName;
-        private Func<TValue, string> _masterKeyExtractor;
+        private readonly TimeSpan? _expiry;
+        private readonly string _masterCollectionRootName;
+        private readonly Func<TValue, string> _masterKeyExtractor;
 
         public IndexFactory(
             Func<TValue, string> masterKeyExtractor, 

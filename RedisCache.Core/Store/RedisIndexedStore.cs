@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using PEL.Framework.Redis.Configuration;
@@ -7,8 +8,8 @@ using PEL.Framework.Redis.Extensions;
 using PEL.Framework.Redis.Indexing;
 using PEL.Framework.Redis.Serialization;
 using StackExchange.Redis;
+#pragma warning disable 4014
 
-#pragma warning disable 4014 //disabled, it on purpose that awaitable must not be awaited on transactions (https://github.com/StackExchange/StackExchange.Redis/blob/master/Docs/Transactions.md)
 
 namespace PEL.Framework.Redis.Store
 {
@@ -32,10 +33,7 @@ namespace PEL.Framework.Redis.Store
             _indexManagers = indexDefinitions.Select(indexFactory.CreateIndex);
         }
 
-        /// <summary>
-        /// Get a master key by an indexed value
-        /// </summary>
-        public async Task<IEnumerable<string>> GetAllKeysByIndexAsync(string indexName, string value)
+        public async Task<IEnumerable<string>> GetKeysByIndex(string indexName, string value)
         {
             var foundIndex = _indexManagers.FirstOrDefault(index => string.Equals(indexName, index.Name, StringComparison.InvariantCultureIgnoreCase));
 
@@ -44,24 +42,25 @@ namespace PEL.Framework.Redis.Store
             return await foundIndex.GetMasterKeys(_database, value);
         }
 
-        /// <summary>
-        /// Get a stroed item by an indexed value
-        /// </summary>
-        public async Task<IEnumerable<TValue>> GetAllByIndexAsync(string indexName, string value)
+        public async Task<IEnumerable<TValue>> GetItemsByIndex(string indexName, string value)
         {
-            var masterKeys = await GetAllKeysByIndexAsync(indexName, value);
-            var values = new List<TValue>();
+            var masterKeys = await GetKeysByIndex(indexName, value);
+            List<TValue> values = new List<TValue>();
             foreach (var key in masterKeys)
             {
-                values.Add(await GetAsync(key));
+                var item = await base.Get(key);
+                if (!item.Equals(default(TValue)))
+                {
+                    values.Add(item);
+                }
             }
 
             return values;
         }
 
-        public new async Task SetAsync(IEnumerable<TValue> items)
+        public new async Task Set(IEnumerable<TValue> items)
         {
-            var mainEntries = items.ToHashEntries(_masterKeyExtractor, item => _serializer.Serialize(item));
+            var mainEntries = items.ToHashEntries(_keyExtractor, item => _serializer.Serialize(item));
 
             var transaction = _database.CreateTransaction();
 
@@ -80,8 +79,9 @@ namespace PEL.Framework.Redis.Store
 
             await transaction.ExecuteAsync();
         }
+        
 
-        public override async Task ClearAsync()
+        public override async Task Clear()
         {
             var transaction = _database.CreateTransaction();
 
@@ -96,18 +96,22 @@ namespace PEL.Framework.Redis.Store
             await transaction.ExecuteAsync();
         }
 
-        public override async Task RemoveAsync(string key)
+        public override async Task Remove(params string[] keys)
         {
-            var item = await GetAsync(key);
+            IList<TValue> items = new List<TValue>();
+            foreach (var key in keys)
+            {
+                items.Add(await base.Get(key));
+            }
 
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
             {
-                index.Remove(transaction, new[] { item });
+                index.Remove(transaction, items);
             }
 
-            transaction.HashDeleteAsync(GenerateMasterName(), key);
+            await _database.HashDeleteAsync(GenerateMasterName(), keys.ToHashKeys());
 
             await transaction.ExecuteAsync();
         }

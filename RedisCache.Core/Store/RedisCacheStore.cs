@@ -35,9 +35,10 @@ namespace RedisCache.Store
             ISerializer serializer,
             Func<TValue, string> keyExtractor,
             string collectionName = null,
-            TimeSpan? expiryExtractor = null)
+            TimeSpan? expiryExtractor = null,
+            int dbId =-1)
         {
-            _database = connectionMultiplexer.GetDatabase();
+            _database = connectionMultiplexer.GetDatabase(dbId);
             _serializer = serializer;
             _keyExtractor = keyExtractor;
             _expiry = expiryExtractor;
@@ -47,7 +48,7 @@ namespace RedisCache.Store
         protected string GenerateMasterName() => $"{_collectionRootName}:{CollectionMasterSuffix}";
         protected string GenerateDefinitionName() => $"{_collectionRootName}:{CollectionDefinitionSuffix}"; //TODO: use later to store collection metadata (such as is empty, last updated etc ...)
 
-        public virtual async Task Flush()
+        public virtual async Task Clear()
         {
             await _database.KeyDeleteAsync(GenerateMasterName());
         }
@@ -86,9 +87,14 @@ namespace RedisCache.Store
             }
         }
 
-        public virtual async Task Remove(string key)
+        public virtual async Task Remove(params string[] keys)
         {
-            await _database.HashDeleteAsync(GenerateMasterName(), key);
+            await _database.HashDeleteAsync(GenerateMasterName(), keys.ToHashKeys());
+        }
+
+        public virtual Task Remove(IEnumerator<string> keys)
+        {
+            throw new NotImplementedException();
         }
     }
 }

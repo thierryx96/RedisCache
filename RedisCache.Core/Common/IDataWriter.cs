@@ -1,24 +1,14 @@
-﻿using StackExchange.Redis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using StackExchange.Redis;
 
-namespace RedisCache.Indexing
+namespace RedisCache.Common
 {
-
-    public interface IKeyResolver
+    internal interface IDataWriter<in TValue>
     {
-        Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value);
-    }
-        
-
-    public interface IIndex<in TValue> : IKeyResolver
-    {
-        string Name { get;  }
-        Func<TValue, string> KeyExtractor { get;  }
-
         void Remove(IDatabaseAsync context, IEnumerable<TValue> items);
         void Set(IDatabaseAsync context, IEnumerable<TValue> items);
         void AddOrUpdate(IDatabaseAsync context, TValue newItem, TValue oldItem);
