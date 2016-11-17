@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using PEL.Framework.Redis.Configuration;
+using PEL.Framework.Redis.Extractors;
 
-namespace RedisCache.Indexing
+namespace PEL.Framework.Redis.Indexing
 {
     public class IndexFactory<TValue>
     {
@@ -22,11 +20,12 @@ namespace RedisCache.Indexing
             _masterCollectionRootName = masterCollectionRootName;
         }
 
-        public IIndex<TValue> CreateIndex(IndexDefinition<TValue> definition)
+        public IIndex<TValue> CreateIndex<TExtractor>(bool unique, TExtractor indexValueExtractor, string name = null)
+            where TExtractor : IKeyExtractor<TValue>
         {
-            return definition.Unique ?
-            (IIndex<TValue>)new UniqueIndex<TValue>(definition.Name, definition.KeyExtractor, _masterKeyExtractor, _masterCollectionRootName, _expiry) :
-            (IIndex<TValue>)new MapIndex<TValue>(definition.Name, definition.KeyExtractor, _masterKeyExtractor, _masterCollectionRootName, _expiry);
+            return unique ?
+            (IIndex<TValue>)new UniqueIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor, _masterKeyExtractor, _masterCollectionRootName, _expiry) :
+            (IIndex<TValue>)new MapIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor, _masterKeyExtractor, _masterCollectionRootName, _expiry);
         }
     }
 }

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using RedisCache.PEL.Framework.Redis.Publishing;
 using StackExchange.Redis;
 
-namespace RedisCache.Indexing
+namespace PEL.Framework.Redis.Expiry
 {
     public class MasterKeysExpiryStore<TValue>
     {

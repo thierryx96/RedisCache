@@ -1,11 +1,16 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Extractors;
 
-namespace PEL.Framework.Redis.Store
+namespace PEL.Framework.Redis.Store.Contracts
 {
     public interface IRedisIndexedStoreAsync<TValue>
     {
-        Task<IEnumerable<string>> GetAllKeysByIndexAsync(string indexName, string value);
-        Task<IEnumerable<TValue>> GetAllByIndexAsync(string indexName, string value);
+        Task<IEnumerable<string>> GetMasterKeysByIndexAsync<TValueExtractor>(string value)
+            where TValueExtractor : IKeyExtractor<TValue>;
+
+        Task<IEnumerable<TValue>> GetItemsByIndexAsync<TValueExtractor>(string value)
+            where TValueExtractor : IKeyExtractor<TValue>;
+
     }
 }

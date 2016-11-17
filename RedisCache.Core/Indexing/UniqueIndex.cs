@@ -1,32 +1,33 @@
-﻿using StackExchange.Redis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Extensions;
+using PEL.Framework.Redis.Extractors;
+using StackExchange.Redis;
 
-namespace RedisCache.Indexing
+namespace PEL.Framework.Redis.Indexing
 {
-    public class UniqueIndex<TValue> : IIndex<TValue>, IKeyResolver
+    public class UniqueIndex<TValue> : IIndex<TValue>
     {
         private TimeSpan? _expiry;
         public string Name { get; private set; }
-        public Func<TValue, string> IndexKeyExtractor;
+        public IKeyExtractor<TValue> Extractor { get; set; }
+        private readonly Func<TValue, string> _masterKeyExtractor;
 
-        public Func<TValue, string> KeyExtractor => IndexKeyExtractor;
+        //public Func<TValue, string> KeyExtractor => IndexKeyExtractor;
         public string HashIndexCollectionName;
 
-        private readonly Func<TValue, string> _masterKeyExtractor;
 
         public UniqueIndex(
             string indexName,
-            Func<TValue, string> indexKeyExtractor,
+            IKeyExtractor<TValue> valueExtractor,
             Func<TValue, string> masterKeyExtractor,
             string collectionRootName,
             TimeSpan? expiry)
         {
             Name = indexName;
-            IndexKeyExtractor = indexKeyExtractor;
+            Extractor = valueExtractor;
             _masterKeyExtractor = masterKeyExtractor;
             HashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
             _expiry = expiry;
@@ -37,7 +38,7 @@ namespace RedisCache.Indexing
             TValue newItem,
             TValue oldItem)
         {
-            if (oldItem != null && !IndexKeyExtractor(newItem).Equals(IndexKeyExtractor(oldItem)))
+            if (oldItem != null && !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem)))
             {
                 Remove(context, new[] { oldItem });
             }
@@ -55,7 +56,7 @@ namespace RedisCache.Indexing
             IDatabaseAsync context,
             IEnumerable<TValue> items)
         {
-            context.HashDeleteAsync(HashIndexCollectionName, items.Select(IndexKeyExtractor).ToHashKeys());
+            context.HashDeleteAsync(HashIndexCollectionName, items.Select(Extractor.ExtractKey).ToHashKeys());
         }
 
         public void Clear(
@@ -72,7 +73,7 @@ namespace RedisCache.Indexing
         {
             var indexName = HashIndexCollectionName;
 
-            context.HashSetAsync(indexName, items.ToHashEntries(IndexKeyExtractor, _masterKeyExtractor));
+            context.HashSetAsync(indexName, items.ToHashEntries(Extractor.ExtractKey, _masterKeyExtractor));
 
             if (_expiry.HasValue)
             {

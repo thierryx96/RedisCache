@@ -1,4 +1,4 @@
-﻿namespace RedisCache.Serialization
+﻿namespace PEL.Framework.Redis.Serialization
 {
     public interface ISerializer
     {

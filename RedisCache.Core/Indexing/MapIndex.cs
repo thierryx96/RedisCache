@@ -1,33 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Extensions;
+using PEL.Framework.Redis.Extractors;
 using StackExchange.Redis;
 
-namespace RedisCache.Indexing
+namespace PEL.Framework.Redis.Indexing
 {
-    public class MapIndex<TValue> : IIndex<TValue>, IKeyResolver
+    public class MapIndex<TValue> : IIndex<TValue>//, IKeyResolver
     {
         private readonly TimeSpan? _expiry;
         public string Name { get; private set; }
-        public Func<TValue, string> IndexKeyExtractor;
+        public IKeyExtractor<TValue> Extractor { get; set; }
+        private readonly Func<TValue, string> _masterKeyExtractor;
 
-        public Func<TValue, string> KeyExtractor => IndexKeyExtractor;
+        //public  string Extractor(TValue value) => _indexKeyExtractor(value);
 
         private string GenerateSetCollectionName(string key) => $"{_indexCollectionPrefix}[{key}]";
-        private readonly Func<TValue, string> _masterKeyExtractor;
         private readonly string _indexCollectionPrefix;
 
         public MapIndex(
             string indexName,
-            Func<TValue, string> indexKeyExtractor,
+            IKeyExtractor<TValue> valueExtractor,
             Func<TValue, string> masterKeyExtractor,
             string collectionRootName,
             TimeSpan? expiry)
         {
             Name = indexName;
-            IndexKeyExtractor = indexKeyExtractor;
+            Extractor = valueExtractor;
             _masterKeyExtractor = masterKeyExtractor;
             _indexCollectionPrefix = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
             _expiry = expiry;
@@ -38,12 +39,12 @@ namespace RedisCache.Indexing
             TValue newItem,
             TValue oldItem)
         {
-            if (oldItem != null && IndexKeyExtractor(oldItem)!= null &&  !IndexKeyExtractor(newItem).Equals(IndexKeyExtractor(oldItem)))
+            if (oldItem != null && Extractor.ExtractKey(oldItem)!= null &&  !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem)))
             {
                 Remove(context, new[] { oldItem });
             };
 
-            if(IndexKeyExtractor(newItem) != null)
+            if(Extractor.ExtractKey(newItem) != null)
             {
                 Set(context, new[] { newItem });
             }
@@ -61,7 +62,7 @@ namespace RedisCache.Indexing
         {
             foreach (var item in items)
             {
-                context.SetRemoveAsync(GenerateSetCollectionName(IndexKeyExtractor(item)), _masterKeyExtractor(item));
+                context.SetRemoveAsync(GenerateSetCollectionName(Extractor.ExtractKey(item)), _masterKeyExtractor(item));
             }
         }
 
@@ -77,7 +78,7 @@ namespace RedisCache.Indexing
             IEnumerable<TValue> items
             )
         {
-            var indexEntries = items.ToMappings(IndexKeyExtractor, _masterKeyExtractor).ToArray();
+            var indexEntries = items.ToMappings(Extractor.ExtractKey, _masterKeyExtractor).ToArray();
 
             foreach (var entry in indexEntries)
             {

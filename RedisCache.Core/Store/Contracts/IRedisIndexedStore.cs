@@ -1,14 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
-namespace PEL.Framework.Redis.Store
+namespace PEL.Framework.Redis.Store.Contracts
 {
     public interface IRedisIndexedStore<out TValue>
     {
-        IEnumerable<string> GetMasterKeysByIndex(string indexName, string value);
-        IEnumerable<TValue> GetItemsByIndex(string indexName, string value);
+
+        IEnumerable<string> GetKeysByIndexAsync(string value);
+
+       IEnumerable<TValue> GetValuesByIndexAsync(string value);
+
     }
+
 }

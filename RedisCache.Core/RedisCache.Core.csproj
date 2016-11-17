@@ -7,7 +7,7 @@
     <ProjectGuid>{189FCC45-D3B9-40D9-8D1B-A7B1CE810B00}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>RedisCache</RootNamespace>
+    <RootNamespace>PEL.Framework.Redis</RootNamespace>
     <AssemblyName>RedisCache</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -52,26 +52,38 @@
   <ItemGroup>
     <Compile Include="Common\IDataWriter.cs" />
     <Compile Include="Configuration\IndexDefinition.cs" />
+    <Compile Include="Database\IRedisDatabaseConnector.cs" />
+    <Compile Include="Database\RedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseManager.cs" />
+    <Compile Include="Database\RedisDefaultDatabaseConnector.cs" />
     <Compile Include="Expiry\ExpiryMessageSubscriber.cs" />
     <Compile Include="Expiry\MasterKeysExpiryStore.cs" />
-    <Compile Include="Store\IRedisIndexedStore.cs" />
-    <Compile Include="Store\IRedisStore.cs" />
+    <Compile Include="Extensions\ExpirableStoreExtensions.cs" />
+    <Compile Include="Extensions\RedisDataExtensions.cs" />
+    <Compile Include="Extractors\KeyExtractorFactory.cs" />
+    <Compile Include="Extractors\IKeyExtractor.cs" />
+    <Compile Include="Publishing\RedisExpiryMessageSubscriber.cs" />
+    <Compile Include="Store\Contracts\IRedisExpirableStore.cs" />
+    <Compile Include="Store\Contracts\IRedisIndexedStoreAsync.cs" />
+    <Compile Include="Store\Contracts\IRedisIndexedStore.cs" />
+    <Compile Include="Store\Contracts\IRedisReadStore.cs" />
+    <Compile Include="Store\Contracts\IRedisReadStoreAsync.cs" />
+    <Compile Include="Store\Contracts\IRedisWriteStoreAsync.cs" />
     <Compile Include="Indexing\IIndex.cs" />
     <Compile Include="Indexing\IndexFactory.cs" />
     <Compile Include="Indexing\MapIndex.cs" />
     <Compile Include="Indexing\UniqueIndex.cs" />
-    <Compile Include="Common\RedisExtensions.cs" />
-    <Compile Include="Store\RedisIndexedStore.cs" />
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\DefaultJsonSerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Store\RedisCacheStore.cs" />
+    <Compile Include="Store\RedisIndexedStore.cs" />
+    <Compile Include="Store\RedisStore.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="RedisCache.Core.nuspec" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>E:\DEV\RedisCache\Tools\NuGet.exe pack E:\DEV\RedisCache\$(ProjectName)\$(ProjectName).nuspec</PostBuildEvent>

@@ -1,8 +1,8 @@
-﻿namespace RedisCache
-{
-    using System;
-    using StackExchange.Redis;
+﻿using System;
+using StackExchange.Redis;
 
+namespace PEL.Framework.Redis.Expiry
+{
     namespace PEL.Framework.Redis.Publishing
     {
         public class RedisExpiryMessageSubscriber : IDisposable

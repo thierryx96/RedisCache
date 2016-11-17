@@ -12,5 +12,8 @@ namespace PEL.Framework.Redis.Extensions
 
         // Get values prepared as a redis set
         public static ILookup<string, RedisValue> ToMappings<TValue>(this IEnumerable<TValue> items, Func<TValue, string> mappingNameExtractor, Func<TValue, string> setItemExtrator) => items.Where(item => mappingNameExtractor(item) != null).ToLookup(mappingNameExtractor, item => (RedisValue) setItemExtrator(item));
+
+        // Get values prepared as a redis hash
+        public static RedisValue[] ToHashKeys(this IEnumerable<string> keys) => keys.Select(key => (RedisValue)key).ToArray();
     }
 }

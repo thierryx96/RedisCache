@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace RedisCache.Store
+namespace PEL.Framework.Redis.Store
 {
     public interface IRedisWriteStore<in TValue>
     {

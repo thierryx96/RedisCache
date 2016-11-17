@@ -1,12 +1,11 @@
-﻿using RedisCache.Serialization;
-using StackExchange.Redis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Serialization;
+using PEL.Framework.Redis.Serialization;
+using StackExchange.Redis;
 
-namespace RedisCache.Store
+namespace PEL.Framework.Redis.Store
 {
     /// <summary>
     /// This version of a Redis store any entity type as a hashset, the key being the C# entity type

@@ -1,11 +1,16 @@
 ﻿using System;
+using PEL.Framework.Redis.Extractors;
+using PEL.Framework.Redis.Indexing;
 
 namespace PEL.Framework.Redis.Configuration
 {
-    public class IndexDefinition<TValue>
+    public class IndexSettings<TValue>
     {
-        public string Name { get; set; }
         public bool Unique { get; set; }
-        public Func<TValue, string> KeyExtractor { get; set; }
+
+        public IKeyExtractor<TValue> Extractor { get; set; }
+
+        public string Name { get; set; }
+
     }
 }

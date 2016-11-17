@@ -2,7 +2,7 @@
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
 
-namespace RedisCache.Serialization
+namespace PEL.Framework.Redis.Serialization
 {
     public class DefaultJsonSerializer : ISerializer
     {
