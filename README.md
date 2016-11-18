@@ -1,25 +1,56 @@
-[![Build Status](https://travis-ci.org/thierryx96/RedisCache.svg?branch=master)](https://travis-ci.org/thierryx96/RedisCache)
-
-
-# RedisCache
+# Redis
 
 ## Tools
 
-* Redis Windows Distribution (Server & Client) : AWS Redis Server Version 3.2.4 (Enhanced) : https://github.com/MSOpenTech/redis/releases (x64) - 32 can be built from the source located on this repository.
-* Redis C# Client : Stack Exchange : https://github.com/StackExchange/StackExchange.Redis
-* Redis Desktop manager : https://redisdesktop.com/
+* **Redis Windows Distribution (Server & Client)** : AWS Redis Server Version 3.2.4 (Enhanced) : https://github.com/MSOpenTech/redis/releases (x64) - 32 can be built from the source located on this repository.
+* **Redis C# Client** : Stack Exchange : https://github.com/StackExchange/StackExchange.Redis
+* **Redis Desktop manager** : https://redisdesktop.com/
 
 ## References
 
-* Redis Cheat sheet : https://www.cheatography.com/tasjaevan/cheat-sheets/redis/
-* Redis C# Cache Example : http://www.codefluff.com/using-redis-cache-with-net-and-c/
-* Redis C# Cache Example for MVC :https://ruhul.wordpress.com/2014/07/23/use-redis-as-cache-provider/
-* Redis Pub/Sub : http://toreaurstad.blogspot.com.au/2015/09/synchronizing-redis-local-caches-for.html
+* **Redis Cheat sheet** https://www.cheatography.com/tasjaevan/cheat-sheets/redis/
+* **Redis Recipes** https://github.com/rediscookbook/rediscookbook
 
-* Cache Invalidation : http://stackoverflow.com/questions/1188587/cache-invalidation-is-there-a-general-solution
-* Cache Invalidation methods : http://sorentwo.com/2016/08/01/strategies-for-selective-cache-expiration.html
+* **Redis C# Cache Example** http://www.codefluff.com/using-redis-cache-with-net-and-c/
+* **Redis C# Cache Example for MVC** https://ruhul.wordpress.com/2014/07/23/use-redis-as-cache-provider
+* **Redis Pub/Sub** http://toreaurstad.blogspot.com.au/2015/09/synchronizing-redis-local-caches-for.html
 
-* AWS Shards : http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/Shards.html
+* **Cache Invalidation** http://stackoverflow.com/questions/1188587/cache-invalidation-is-there-a-general-solution
+* **Cache Invalidation methods** http://sorentwo.com/2016/08/01/strategies-for-selective-cache-expiration.html
+
+* **AWS Shards** http://docs.aws.amazon.com/AmazonElastiCache/latest/UserGuide/Shards.html
+
+## Data Structures
+
+http://redis.io/topics/data-types-intro
+
+| Structure type    | What it contains                                                             | Structure read/write ability                                                                                              |
+|-------------------|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| STRING            | Strings, integers, or floating-point values                                  | Operate on the whole string, parts, increment/ decrement the integers and floats                                          |
+| LIST              | Linked list of strings                                                       | Push or pop items from both ends, trim based on offsets, read individual or multiple items, find or remove items by value |
+| SET               | Unordered collection of unique strings                                       | Add, fetch, or remove individual items, check membership, intersect, union, difference, fetch random items                |
+| HASH              | Unordered hash table of keys to values                                       | Add, fetch, or remove individual items, fetch the whole hash                                                              |
+| ZSET (sorted set) | Ordered mapping of string members to floating-point scores, ordered by score | Add, fetch, or remove individual values, fetch items based on score ranges or member value                                |
+
+The right choice of the data types depends solely of the nature of the data that we plan to persists and how we want it to be retrieved.
+
+
+
+
+
+### Use cases: ES2 data sets
+
+## Provisioned Companies
+
+Companies can be accessed :
+
+1. Invididually : Get(id)
+2. As a Set GetAll()
+3. By their aliases 
+
+
+
+
 
 ## Key Expiry Events
 
@@ -32,32 +63,33 @@ Via a background system that looks for expired keys in background, incrementally
 
 The expired events are generated when a key is accessed and is found to be expired by one of the above systems, as a result there are no guarantees that the Redis server will be able to generate the expired event at the time the key time to live reaches the value of zero. If no command targets the key constantly, and there are many keys with a TTL associated, there can be a significant delay between the time the key time to live drops to zero, and the time the expired event is generated.
 
-*Enabling KeySpace notifications (expiry only)*
+**Enabling KeySpace notifications (expiry only)**
 
 ```
 CONFIG SET notify-keyspace-events xKE
 CONFIG GET notify-keyspace-events 
 ```
 
-*All events (makes the whole system really chatty, not recommended for production systems)*
+**All events (makes the whole system really chatty, not recommended for production systems)**
+
 ```
 CONFIG SET notify-keyspace-events AKE 
 CONFIG GET notify-keyspace-events 
 ```
 
 
-*Test it with redis-cli (open a listener to event on db 0)*
+**Test it with redis-cli (open a listener to event on db 0)**
+
 ```
 PSUBSCRIBE __keyspace@0__:*   
 
 PSUBSCRIBE __keyevents@<database>__:<command pattern> 
 ```
 
-*With the StackExchange client (create and open a listener to events on db 0)*
+**With the StackExchange client (create and open a listener to events on db 0)**
 
 ```C#
 // Using stackExchange.Redis
-
 using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localhost"))
 {
     IDatabase db = connection.GetDatabase();
@@ -75,13 +107,12 @@ using (ConnectionMultiplexer connection = ConnectionMultiplexer.Connect("localho
 ```
 
 ## AWS Elasticache Redis vs Standalone Redis Distribution 
-
-The AWS Elasticache Redis configuration is really similar to a "non-cloud" Redis server system. 
+The AWS Elasticache Redis configuration is really similar to a "non-cloud" Redis server system.
 
 Main differences : 
 
-- **Access control** is done through AWS own security layer : Cache Security Groups, VPN, Security Groups ... basically AWS allows client to access via authorized via security groups
-- **Redis Server Configuration** is done through predefined customizable parameters groups, instead of configuration file (as per Redis classic). Therefore changing the config with the Redis-cli with commands such as ```CONFIG SET notify-keyspace-events xKE``` is not allowed on an AWS instance.
+* **Access control** is done through AWS own security layer : Cache Security Groups, VPN, Security Groups ... basically AWS allows client to access via authorized via security groups
+* **Redis Server Configuration** is done through predefined customizable parameters groups, instead of configuration file (as per Redis classic). Therefore changing the config with the Redis-cli with commands such as *CONFIG SET notify-keyspace-events xKE* is not allowed on an AWS instance.
 
 ## Scalability / clustering features
 
@@ -154,7 +185,4 @@ Redlock is a library that help achieving that, it has a good integration with th
 ## Commands scripting
 
 This is done by lua, and it is really well explained there : https://www.compose.com/articles/a-quick-guide-to-redis-lua-scripting/
-
-
-
 

@@ -11,6 +11,9 @@ namespace PEL.Framework.Redis.Store.Contracts
 
         Task AddOrUpdateAsync(TValue item);
 
+        Task RemoveAsync(string key);
+
         Task RemoveAsync(IEnumerable<string> keys);
+
     }
 }

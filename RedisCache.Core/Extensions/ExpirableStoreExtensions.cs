@@ -31,5 +31,17 @@ namespace PEL.Framework.Redis.Extensions
             await cache.SetAsync(allItems);
             return allItems.FirstOrDefault(item => key.Equals(cache.ExtractMasterKey(item)));
         }
+
+        public static IEnumerable<T> GetAllOrLoad<T>(this IRedisExpirableStore<T> cache, Func<IEnumerable<T>> getAllItems)
+        {
+            var cachedItems = cache.GetAll().ToArray();
+
+            if (cachedItems.Any()) return cachedItems;
+
+            var allItems = getAllItems().ToArray();
+
+            cache.Set(allItems);
+            return allItems;
+        }
     }
 }

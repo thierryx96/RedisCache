@@ -8,27 +8,27 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    public class MapIndex<TValue> : IIndex<TValue>//, IKeyResolver
+    internal class OneToManyIndex<TValue> : IIndex<TValue>
     {
         private readonly TimeSpan? _expiry;
-        public string Name { get; private set; }
+        public string Name { get; }
         public IKeyExtractor<TValue> Extractor { get; set; }
-        private readonly Func<TValue, string> _masterKeyExtractor;
-
-        //public  string Extractor(TValue value) => _indexKeyExtractor(value);
+        public Func<TValue, string> _indexKeyExtractor;
+        public Func<TValue, string> ValueExtractor => _indexKeyExtractor;
 
         private string GenerateSetCollectionName(string key) => $"{_indexCollectionPrefix}[{key}]";
+        private readonly Func<TValue, string> _masterKeyExtractor;
         private readonly string _indexCollectionPrefix;
 
-        public MapIndex(
+        public OneToManyIndex(
             string indexName,
-            IKeyExtractor<TValue> valueExtractor,
+            Func<TValue, string> indexValueExtractor,
             Func<TValue, string> masterKeyExtractor,
             string collectionRootName,
             TimeSpan? expiry)
         {
             Name = indexName;
-            Extractor = valueExtractor;
+            _indexKeyExtractor = indexValueExtractor;
             _masterKeyExtractor = masterKeyExtractor;
             _indexCollectionPrefix = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
             _expiry = expiry;
@@ -39,12 +39,13 @@ namespace PEL.Framework.Redis.Indexing
             TValue newItem,
             TValue oldItem)
         {
-            if (oldItem != null && Extractor.ExtractKey(oldItem)!= null &&  !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem)))
+            if (oldItem != null && _indexKeyExtractor(oldItem) != null && !_indexKeyExtractor(newItem).Equals(_indexKeyExtractor(oldItem)))
             {
                 Remove(context, new[] { oldItem });
-            };
+            }
+            ;
 
-            if(Extractor.ExtractKey(newItem) != null)
+            if (_indexKeyExtractor(newItem) != null)
             {
                 Set(context, new[] { newItem });
             }
@@ -62,32 +63,30 @@ namespace PEL.Framework.Redis.Indexing
         {
             foreach (var item in items)
             {
-                context.SetRemoveAsync(GenerateSetCollectionName(Extractor.ExtractKey(item)), _masterKeyExtractor(item));
+                context.SetRemoveAsync(GenerateSetCollectionName(_indexKeyExtractor(item)), _masterKeyExtractor(item));
             }
         }
 
         public void Clear(
             IDatabaseAsync context
-            )
+        )
         {
+            // // TODO: (trais, 10 Nov 2016) - find a way to clear, without a scan on the keys
             // Not at problem if the index is stale as long as the master key is removed.
         }
 
         public void Set(
             IDatabaseAsync context,
             IEnumerable<TValue> items
-            )
+        )
         {
-            var indexEntries = items.ToSets(Extractor.ExtractKey, _masterKeyExtractor).ToArray();
+            var indexEntries = items.ToSets(_indexKeyExtractor, _masterKeyExtractor).ToArray();
 
             foreach (var entry in indexEntries)
             {
                 context.SetAddAsync(GenerateSetCollectionName(entry.Key), entry.ToArray());
                 context.KeyExpireAsync(entry.Key, _expiry);
-            }        
+            }
         }
-
-
     }
-
 }

@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PEL.Framework.Redis.Configuration;
 using PEL.Framework.Redis.Database;
 using PEL.Framework.Redis.Extensions;
+using PEL.Framework.Redis.Extractors;
 using PEL.Framework.Redis.Serialization;
 using PEL.Framework.Redis.Store.Contracts;
 using StackExchange.Redis;
@@ -18,33 +20,30 @@ namespace PEL.Framework.Redis.Store
     {
         protected readonly ISerializer _serializer;
         protected readonly IDatabase _database;
-        protected Func<TValue, string> _masterKeyExtractor;
+
         protected readonly string _collectionRootName;
-        protected readonly TimeSpan? _expiry;
+        protected readonly IKeyExtractor<TValue> _masterKeyExtractor; 
         private const string CollectionMasterSuffix = "master";
 
         public string CollectionRootName => _collectionRootName;
-        public TimeSpan? Expiry => _expiry;
 
         protected RedisStore(
             IRedisDatabaseConnector connection,
             ISerializer serializer,
-
-            // config
-            Func<TValue, string> masterKeyExtractor,
-            string collectionName = null,
-            TimeSpan? expiry = null)
+            CollectionSettings<TValue> collectionDefinition)
         {
             _database = connection.GetConnectedDatabase();
             _serializer = serializer;
-            _masterKeyExtractor = masterKeyExtractor;
-            _expiry = expiry;
-            _collectionRootName = (collectionName ?? typeof(TValue).Name).ToLowerInvariant();
+
+            _collectionRootName = (collectionDefinition.Name ?? typeof(TValue).Name).ToLowerInvariant();
+            _masterKeyExtractor = collectionDefinition.MasterKeyExtractor;
+            Expiry = collectionDefinition.Expiry;
         }
 
         protected string GenerateMasterName() => $"{_collectionRootName}:{CollectionMasterSuffix}";
+        protected TimeSpan? Expiry { get; }
 
-        public string ExtractMasterKey(TValue value) => _masterKeyExtractor(value);
+        public string ExtractMasterKey(TValue value) => _masterKeyExtractor.ExtractKey(value);
 
         public TValue Get(string key)
         {
@@ -69,7 +68,7 @@ namespace PEL.Framework.Redis.Store
             return item;
         }
 
-        public async Task<IEnumerable<TValue>> GetAllAsync()
+        public virtual async Task<IEnumerable<TValue>> GetAllAsync()
         {
             var jsonValues = await _database.HashValuesAsync(GenerateMasterName());
             var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
@@ -81,23 +80,38 @@ namespace PEL.Framework.Redis.Store
             await _database.KeyDeleteAsync(GenerateMasterName());
         }
 
+        public virtual void Set(IEnumerable<TValue> items)
+        {
+            var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
+            _database.HashSet(GenerateMasterName(), entries);
+            if (Expiry.HasValue)
+            {
+                _database.KeyExpire(GenerateMasterName(), Expiry);
+            }
+        }
+
         public virtual async Task SetAsync(IEnumerable<TValue> items)
         {
-            var entries = items.Select(item => new HashEntry(ExtractMasterKey(item), _serializer.Serialize(item))).ToArray();
+            var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
             await _database.HashSetAsync(GenerateMasterName(), entries);
-            if (_expiry.HasValue)
+            if (Expiry.HasValue)
             {
-                await _database.KeyExpireAsync(GenerateMasterName(), _expiry);
+                await _database.KeyExpireAsync(GenerateMasterName(), Expiry);
             }
         }
 
         public virtual async Task AddOrUpdateAsync(TValue item)
         {
             await _database.HashSetAsync(GenerateMasterName(), ExtractMasterKey(item), _serializer.Serialize(item));
-            if (_expiry.HasValue)
+            if (Expiry.HasValue)
             {
-                await _database.KeyExpireAsync(GenerateMasterName(), _expiry);
+                await _database.KeyExpireAsync(GenerateMasterName(), Expiry);
             }
+        }
+
+        public virtual async Task RemoveAsync(string key)
+        {
+            await _database.HashDeleteAsync(GenerateMasterName(), key);
         }
 
         public virtual async Task RemoveAsync(IEnumerable<string> keys)

@@ -4,11 +4,11 @@ using Newtonsoft.Json.Serialization;
 
 namespace PEL.Framework.Redis.Serialization
 {
-    public class DefaultJsonSerializer : ISerializer
+    internal class DefaultJsonSerializer : ISerializer
     {
         private readonly JsonSerializerSettings _settings;
 
-        public DefaultJsonSerializer()
+        public DefaultJsonSerializer(params JsonConverter[] converters)
         {
             _settings = new JsonSerializerSettings
             {
@@ -17,8 +17,12 @@ namespace PEL.Framework.Redis.Serialization
                 DateTimeZoneHandling = DateTimeZoneHandling.Utc,
                 TypeNameHandling = TypeNameHandling.Objects
             };
-
             _settings.Converters.Add(new StringEnumConverter());
+
+            foreach (var converter in converters)
+            {
+                _settings.Converters.Add(converter);
+            }
         }
 
         public string Serialize<T>(T value)

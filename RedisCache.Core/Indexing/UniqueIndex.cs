@@ -13,23 +13,27 @@ namespace PEL.Framework.Redis.Indexing
         private TimeSpan? _expiry;
         public string Name { get; private set; }
         public IKeyExtractor<TValue> Extractor { get; set; }
-        private readonly Func<TValue, string> _masterKeyExtractor;
+        private readonly IKeyExtractor<TValue> _masterKeyExtractor;
 
-        //public Func<TValue, string> KeyExtractor => IndexKeyExtractor;
-        public string HashIndexCollectionName;
+        private readonly Task<Func<string, TValue>> _masterValueExtractor;
 
+        public string _hashIndexCollectionName;
 
         public UniqueIndex(
             string indexName,
-            IKeyExtractor<TValue> valueExtractor,
-            Func<TValue, string> masterKeyExtractor,
+            IKeyExtractor<TValue> keyExtractor,
+            IKeyExtractor<TValue> masterKeyExtractor,
+            Task<Func<string, TValue>> masterValueExtractor,
             string collectionRootName,
             TimeSpan? expiry)
         {
             Name = indexName;
-            Extractor = valueExtractor;
+            Extractor = keyExtractor;
+            _masterValueExtractor = masterValueExtractor;
+
+
             _masterKeyExtractor = masterKeyExtractor;
-            HashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
+            _hashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
             _expiry = expiry;
         }
 
@@ -45,25 +49,36 @@ namespace PEL.Framework.Redis.Indexing
             Set(context, new[] { newItem });
         }
 
-
         public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value)
         {
-            var keyFound = await context.HashGetAsync(HashIndexCollectionName, value);
+            var keyFound = await context.HashGetAsync(_hashIndexCollectionName, value);
             return keyFound.HasValue ? new string[] { keyFound } : new string[0];
+        }
+
+        public async Task<IEnumerable<TValue>> GetMasterValues(IDatabaseAsync context, string key)
+        {
+            var masterKeys = (await GetMasterKeys(context, key)).ToArray();        
+            if(masterKeys.Any())
+            {
+                var value = await _masterValueExtractor;
+                return new TValue[] { value };
+            }
+
+
         }
 
         public void Remove(
             IDatabaseAsync context,
             IEnumerable<TValue> items)
         {
-            context.HashDeleteAsync(HashIndexCollectionName, items.Select(Extractor.ExtractKey).ToHashKeys());
+            context.HashDeleteAsync(_hashIndexCollectionName, items.Select(Extractor.ExtractKey).ToHashKeys());
         }
 
         public void Clear(
             IDatabaseAsync context
             )
         {
-            context.KeyDeleteAsync(HashIndexCollectionName);
+            context.KeyDeleteAsync(_hashIndexCollectionName);
         }
 
         public void Set(
@@ -71,9 +86,9 @@ namespace PEL.Framework.Redis.Indexing
             IEnumerable<TValue> items
             )
         {
-            var indexName = HashIndexCollectionName;
+            var indexName = _hashIndexCollectionName;
 
-            context.HashSetAsync(indexName, items.ToHashEntries(Extractor.ExtractKey, _masterKeyExtractor));
+            context.HashSetAsync(indexName, items.ToHashEntries(Extractor.ExtractKey, _masterKeyExtractor.ExtractKey));
 
             if (_expiry.HasValue)
             {

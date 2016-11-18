@@ -1,4 +1,5 @@
 ﻿using System;
+using PEL.Framework.Redis.Database;
 using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Publishing
@@ -9,19 +10,20 @@ namespace PEL.Framework.Redis.Publishing
         private readonly string _keySpaceChannel;
 
         public static RedisExpiryMessageSubscriber CreateForCollectionType<TValue>(
-            IConnectionMultiplexer redisPublisherConnection
+            IRedisDatabaseConnector connection
         )
         {
-            return new RedisExpiryMessageSubscriber(redisPublisherConnection, typeof(TValue).Name.ToLowerInvariant());
+            return new RedisExpiryMessageSubscriber(connection, typeof(TValue).Name.ToLowerInvariant());
         }
 
         protected RedisExpiryMessageSubscriber(
-            IConnectionMultiplexer redisPublisherConnection,
+            IRedisDatabaseConnector connection,
             string collectionName
         )
         {
-            _subscriber = redisPublisherConnection.GetSubscriber();
-            _keySpaceChannel = $"__keyspace@0__:{collectionName}*";
+            var db = connection.GetConnectedDatabase();
+            _subscriber = db.Multiplexer.GetSubscriber();
+            _keySpaceChannel = $"__keyspace@{db.Database}__:{collectionName}*";
         }
 
         public void SubscribeExpiry(Action<string> onExpiryMessage)
