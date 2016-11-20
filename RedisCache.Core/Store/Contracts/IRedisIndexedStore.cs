@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace PEL.Framework.Redis.Store.Contracts
+namespace PEL.Framework.Redis.Store.Indexed
 {
     public interface IRedisIndexedStore<out TValue>
     {

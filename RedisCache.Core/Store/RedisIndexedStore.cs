@@ -8,6 +8,7 @@ using PEL.Framework.Redis.Extensions;
 using PEL.Framework.Redis.Extractors;
 using PEL.Framework.Redis.Indexing;
 using PEL.Framework.Redis.Serialization;
+using PEL.Framework.Redis.Store.Contracts;
 using StackExchange.Redis;
 
 #pragma warning disable 4014 //disabled, it on purpose that awaitable must not be awaited on transactions (https://github.com/StackExchange/StackExchange.Redis/blob/master/Docs/Transactions.md)
@@ -32,25 +33,20 @@ namespace PEL.Framework.Redis.Store
                 serializer,
                 collectionDefinition)
         {
-            var indexFactory = new IndexFactory<TValue>(ExtractMasterKey, _collectionRootName, Expiry);
+            var indexFactory = new IndexFactory<TValue>(serializer, _masterKeyExtractor, _collectionRootName, Expiry);
 
-
-            _indexManagers = indexDefinitions.Select(index => indexFactory.CreateIndex(index.Unique, index.Extractor));
+            _indexManagers = indexDefinitions.Select(index => indexFactory.CreateIndex(index.Unique, index.WithPayload, index.Extractor));
         }
 
-        public async Task<IEnumerable<string>> GetKeysByIndexAsync<TValueExtractor>(string value)
+        public async Task<IEnumerable<string>> GetMasterKeysByIndexAsync<TValueExtractor>(string value)
             where TValueExtractor : IKeyExtractor<TValue>
         {
             var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
 
             if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
 
-            return await foundIndex.GetMasterValues(value);
+            return await foundIndex.GetMasterKeys(_database, value);                      
         }
-
-        //    return await foundIndex.GetMasterKeys(_database, value);
-        //}
-
 
         public async Task<IEnumerable<TValue>> GetItemsByIndexAsync<TValueExtractor>(string value)
            where TValueExtractor : IKeyExtractor<TValue>
@@ -58,21 +54,24 @@ namespace PEL.Framework.Redis.Store
             var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
             if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
 
-            return await foundIndex.GetMasterValues(value);
-
-
-            var masterKeys = await GetKeysByIndexAsync<TValueExtractor>(value);
-            var values = new List<TValue>();
-            foreach (var key in masterKeys)
+            if (foundIndex is IMasterValueResolver<TValue>)
             {
-                var item = await base.GetAsync(key);
-                if (!item.Equals(default(TValue)))
-                {
-                    values.Add(item);
-                }
+                return await (foundIndex as IMasterValueResolver<TValue>).GetMasterValues(_database, value);
             }
-
-            return values;
+            else
+            {
+                var masterKeys =  await foundIndex.GetMasterKeys(_database, value);
+                var values = new List<TValue>();
+                foreach (var key in masterKeys)
+                {
+                    var item = await base.GetAsync(key);
+                    if (!item.Equals(default(TValue)))
+                    {
+                        values.Add(item);
+                    }
+                }
+                return values;
+            }
         }
 
 

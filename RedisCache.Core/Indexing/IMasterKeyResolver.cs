@@ -4,9 +4,11 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    internal interface IMasterKeyResolver
+    public interface IMasterKeyResolver
     {
         Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value);
+        Task<IEnumerable<string>> GetAllMasterKeys(IDatabaseAsync context);
+
     }
 
 }

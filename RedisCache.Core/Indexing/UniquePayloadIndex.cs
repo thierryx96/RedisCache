@@ -9,75 +9,87 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    public class UniquePayloadIndex<TValue> : IIndex<TValue>
+    public class UniquePayloadIndex<TValue> : IIndex<TValue>, IMasterValueResolver<TValue>, IMasterKeyResolver
     {
+        private readonly Func<TValue, string> _masterKeyExtractor;
         private TimeSpan? _expiry;
-        public string Name { get; private set; }
+        public string Name { get; }
         public IKeyExtractor<TValue> Extractor { get; set; }
-        public IKeyExtractor<TValue> _masterKeyExtractor;
 
-        public string _hashIndexCollectionName;
+        private readonly string _hashIndexCollectionName;
         private readonly ISerializer _serializer;
 
         public UniquePayloadIndex(
             string indexName,
             IKeyExtractor<TValue> valueExtractor,
-            IKeyExtractor<TValue> masterKeyExtractor,
+            Func<TValue, string> masterKeyExtractor,
             string collectionRootName,
             ISerializer serializer,
             TimeSpan? expiry)
         {
             Name = indexName;
             Extractor = valueExtractor;
-            _masterKeyExtractor = masterKeyExtractor;
             _hashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
+            _masterKeyExtractor = masterKeyExtractor;
             _expiry = expiry;
             _serializer = serializer;
         }
 
-        public async Task AddOrUpdateAsync(
+        public void AddOrUpdate(
             IDatabaseAsync context,
             TValue newItem,
             TValue oldItem)
         {
             if (oldItem != null && !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem)))
             {
-                RemoveAsync(context, new[] { oldItem });
+                Remove(context, new[] { oldItem });
             }
-            SetAsync(context, new[] { newItem });
+            Set(context, new[] { newItem });
         }
 
 
-        public async Task<TValue> GetValue(IDatabaseAsync context, string key)
+        public async Task<IEnumerable<TValue>> GetMasterValues(IDatabaseAsync context, string key)
         {
             var jsonValue = await context.HashGetAsync(_hashIndexCollectionName, key);
-            if (!jsonValue.HasValue) return default(TValue);
+            if (!jsonValue.HasValue) return new TValue[]{};
             var item = _serializer.Deserialize<TValue>(jsonValue);
-            return item;
+            return new [] { item }; 
         }
 
-        public virtual async Task<IEnumerable<TValue>> GetAllValues(IDatabaseAsync context)
+        public virtual async Task<IEnumerable<TValue>> GetAllMasterValues(IDatabaseAsync context)
         {
             var jsonValues = await context.HashValuesAsync(_hashIndexCollectionName);
             var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
             return items;
         }
 
-        public async Task RemoveAsync(
+        public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string key)
+        {
+            var values = await GetMasterValues(context, key);
+            return values.Select(_masterKeyExtractor);
+        }
+
+        public async Task<IEnumerable<string>> GetAllMasterKeys(IDatabaseAsync context)
+        {
+            var values = await GetAllMasterValues(context);
+            return values.Select(_masterKeyExtractor);
+        }
+
+        public void Remove(
             IDatabaseAsync context,
             IEnumerable<TValue> items)
         {
             context.HashDeleteAsync(_hashIndexCollectionName, items.Select(Extractor.ExtractKey).ToHashKeys());
         }
 
-        public async Task ClearAsync(
+        public void Clear(
             IDatabaseAsync context
             )
         {
             context.KeyDeleteAsync(_hashIndexCollectionName);
         }
 
-        public async Task SetAsync(
+        public void Set(
             IDatabaseAsync context,
             IEnumerable<TValue> items
             )
@@ -88,20 +100,6 @@ namespace PEL.Framework.Redis.Indexing
             if (_expiry.HasValue)
             {
                 context.KeyExpireAsync(indexName, _expiry);
-            }
-        }
-
-        public void Set(
-            IDatabase context,
-            IEnumerable<TValue> items
-            )
-        {
-            var indexName = _hashIndexCollectionName;
-            context.HashSet(indexName, items.ToHashEntries(Extractor.ExtractKey, item => _serializer.Serialize(item)));
-
-            if (_expiry.HasValue)
-            {
-                context.KeyExpire(indexName, _expiry);
             }
         }
 

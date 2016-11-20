@@ -51,7 +51,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Common\IDataWriter.cs" />
-    <Compile Include="Configuration\IndexDefinition.cs" />
+    <Compile Include="Configuration\CollectionSettings.cs" />
+    <Compile Include="Configuration\IndexSettings.cs" />
     <Compile Include="Database\IRedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseManager.cs" />
@@ -62,17 +63,21 @@
     <Compile Include="Extensions\RedisDataExtensions.cs" />
     <Compile Include="Extractors\KeyExtractorFactory.cs" />
     <Compile Include="Extractors\IKeyExtractor.cs" />
+    <Compile Include="Indexing\IMasterKeyResolver.cs" />
+    <Compile Include="Indexing\IMasterValuesResolver.cs" />
+    <Compile Include="Indexing\LookupKeyIndex.cs" />
+    <Compile Include="Indexing\UniquePayloadIndex.cs" />
     <Compile Include="Publishing\RedisExpiryMessageSubscriber.cs" />
     <Compile Include="Store\Contracts\IRedisExpirableStore.cs" />
-    <Compile Include="Store\Contracts\IRedisIndexedStoreAsync.cs" />
     <Compile Include="Store\Contracts\IRedisIndexedStore.cs" />
+    <Compile Include="Store\Contracts\IRedisReadIndexedStoreAsync.cs" />
     <Compile Include="Store\Contracts\IRedisReadStore.cs" />
     <Compile Include="Store\Contracts\IRedisReadStoreAsync.cs" />
+    <Compile Include="Store\Contracts\IRedisWriteStore.cs" />
     <Compile Include="Store\Contracts\IRedisWriteStoreAsync.cs" />
     <Compile Include="Indexing\IIndex.cs" />
     <Compile Include="Indexing\IndexFactory.cs" />
-    <Compile Include="Indexing\MapIndex.cs" />
-    <Compile Include="Indexing\UniqueIndex.cs" />
+    <Compile Include="Indexing\UniqueKeyIndex.cs" />
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\DefaultJsonSerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

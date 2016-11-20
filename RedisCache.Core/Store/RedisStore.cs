@@ -16,7 +16,7 @@ namespace PEL.Framework.Redis.Store
     /// Simple Redis Store implementation, store and manage a collection of keys (master keys)
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
-    public abstract class RedisStore<TValue> : IRedisExpirableStore<TValue>
+    public class RedisStore<TValue> : IRedisExpirableStore<TValue>
     {
         protected readonly ISerializer _serializer;
         protected readonly IDatabase _database;
@@ -27,7 +27,7 @@ namespace PEL.Framework.Redis.Store
 
         public string CollectionRootName => _collectionRootName;
 
-        protected RedisStore(
+        public RedisStore(
             IRedisDatabaseConnector connection,
             ISerializer serializer,
             CollectionSettings<TValue> collectionDefinition)

@@ -1,6 +1,6 @@
 ﻿using System;
-using PEL.Framework.Redis.Configuration;
 using PEL.Framework.Redis.Extractors;
+using PEL.Framework.Redis.Serialization;
 
 namespace PEL.Framework.Redis.Indexing
 {
@@ -9,38 +9,44 @@ namespace PEL.Framework.Redis.Indexing
         private readonly TimeSpan? _expiry;
         private readonly string _masterCollectionRootName;
         private readonly IKeyExtractor<TValue> _masterKeyResolver;
-        private readonly IValueExtractorAsync<TValue> _masterValueExtractor;
+
+        private readonly ISerializer _serializer;
+        //private Func<string, TValue> _masterValueExtractor;
+
 
         public IndexFactory(
-            IKeyExtractor<TValue>  masterKeyResolver,
-            IValueExtractorAsync<TValue> masterValueExtractor,
+            ISerializer serializer,
+            IKeyExtractor<TValue> masterKeyResolver,
             string masterCollectionRootName,
             TimeSpan? expiry)
         {
+            _serializer = serializer;
             _masterKeyResolver = masterKeyResolver;
-            _masterValueExtractor = masterValueExtractor;
             _expiry = expiry;
             _masterCollectionRootName = masterCollectionRootName;
         }
 
-        public IIndex<TValue> CreateIndex<TExtractor>(bool unique, bool withPayload, TExtractor indexValueExtractor, string name = null)
+        public IIndex<TValue> CreateIndex<TExtractor>(bool unique, bool withPayload, TExtractor indexValueExtractor,
+            string name = null)
             where TExtractor : IKeyExtractor<TValue>
         {
-
             if (withPayload)
             {
                 if (unique)
-                {
-                    (IIndex<TValue>)new UniquePayloadIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor, _masterValueExtractor, _masterCollectionRootName, _expiry) :
-
-                }
+                    return new UniquePayloadIndex<TValue>(
+                        name ?? indexValueExtractor.GetType().Name,
+                        indexValueExtractor,
+                        _masterKeyResolver.ExtractKey,
+                        _masterCollectionRootName,
+                        _serializer,
+                        _expiry);
                 throw new NotImplementedException();
             }
-            return unique ?
-            (IIndex<TValue>)new UniqueIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor, _masterKeyExtractor,  _masterCollectionRootName, _expiry) :
-            (IIndex<TValue>)new MapIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor, _masterKeyExtractor,  _masterCollectionRootName, _expiry);
+            if (unique)
+                return new UniqueKeyIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor,
+                    _masterKeyResolver, _masterCollectionRootName, _expiry);
+            return new LookupKeyIndex<TValue>(name ?? indexValueExtractor.GetType().Name, indexValueExtractor,
+                _masterKeyResolver, _masterCollectionRootName, _expiry);
         }
-
-
     }
 }
