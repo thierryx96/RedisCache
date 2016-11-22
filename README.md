@@ -1,5 +1,13 @@
 # Redis
 
+## TL;DR (to install, configure and start Redis on your box)
+
+1. Download the latest Redis Windows Distribution from: https://github.com/MSOpenTech/redis/releases. Once run this will install Redi as a Windows Service and start it.
+2. (optional) : Install the Redis Browser from: https://redisdesktop.com/. The Redis Desktop Manager allows your to browse your Redis Instance data, etc ...
+3. Run the Redis Command Line Client from : `C:\Program Files\Redis\redis-cli`. Run the command: `CONFIG SET notify-keyspace-events xKE` on it. This will enable the pub/sub mechanism for key expiry on Redis.
+
+
+
 ## Tools
 
 * **Redis Windows Distribution (Server & Client)** : AWS Redis Server Version 3.2.4 (Enhanced) : https://github.com/MSOpenTech/redis/releases (x64) - 32 can be built from the source located on this repository.
@@ -24,7 +32,7 @@
 
 http://redis.io/topics/data-types-intro
 
-| Structure type    | What it contains                                                             | Structure read/write ability                                                                                              |
+| Structure type    | What it contains                                                             | Structure read/write ability                                                                                              | Application
 |-------------------|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
 | STRING            | Strings, integers, or floating-point values                                  | Operate on the whole string, parts, increment/ decrement the integers and floats                                          |
 | LIST              | Linked list of strings                                                       | Push or pop items from both ends, trim based on offsets, read individual or multiple items, find or remove items by value |
@@ -32,21 +40,60 @@ http://redis.io/topics/data-types-intro
 | HASH              | Unordered hash table of keys to values                                       | Add, fetch, or remove individual items, fetch the whole hash                                                              |
 | ZSET (sorted set) | Ordered mapping of string members to floating-point scores, ordered by score | Add, fetch, or remove individual values, fetch items based on score ranges or member value                                |
 
-The right choice of the data types depends solely of the nature of the data that we plan to persists and how we want it to be retrieved.
+The right choice of the data types depends solely of the nature of the data that we plan to persists and how we want it to be retrieved. For example if we want a collection of keys to be retrieved as a whole (e.g. )
+
+### Strings
+
+```
+"key" -> "door"
+"int" -> 1
+"dec" -> 0.1
+```
+
+* Fast read by key, fast write
+* Expiry on a single key
+* Use case: retrieval by unique id
 
 
+### Hashes
+
+```
+"companies" -> { "google" -> "blah", "yahoo" -> "bleh", ... }
+"fruits" -> { "banana" -> "yellow", "apple" -> "red", "orange" -> "orange", ... }
+```
+
+* Fast read by (hashset's key, hash enty's key)
+* Expiry on the full hashset
+* Use case: retrieval by unique id, get a finite collection (get all)
+
+### Sets
+
+```
+"tempeature" -> { "fahrenheit", "celsius",  "..." }
+"companiesbycategory[it]" -> { "google", "yahoo"  }
+```
+
+* Set operations (union, intersects ... )
+* Expiry on the set
+* Use case: grouping things
+
+### Sorted Sets
 
 
+* Retrieve by rank (score) or by value. 
+* Expiry on the set
+* Use case: indexing by score (date time range etc ...), fetch by slicing
 
-### Use cases: ES2 data sets
+### List
 
-## Provisioned Companies
+```
+"news" -> { "today", "yesterday",  "..." }
+```
 
-Companies can be accessed :
+* Retrieval from head or tail = Java Linkedlist
+* Expiry on the set
+* Use case: threads, facebook posts ...
 
-1. Invididually : Get(id)
-2. As a Set GetAll()
-3. By their aliases 
 
 
 

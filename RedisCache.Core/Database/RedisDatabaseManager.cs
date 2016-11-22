@@ -7,7 +7,7 @@ namespace PEL.Framework.Redis.Database
     /// <summary>
     /// Utils methods on a Sever and Database level
     /// </summary>
-    public class RedisDatabaseManager
+    internal class RedisDatabaseManager
     {
         private readonly IRedisDatabaseConnector _connector;
 

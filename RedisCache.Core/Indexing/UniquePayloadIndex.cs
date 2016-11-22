@@ -9,9 +9,8 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    public class UniquePayloadIndex<TValue> : IIndex<TValue>, IMasterValueResolver<TValue>, IMasterKeyResolver
+    internal class UniquePayloadIndex<TValue> : IIndex<TValue>
     {
-        private readonly Func<TValue, string> _masterKeyExtractor;
         private TimeSpan? _expiry;
         public string Name { get; }
         public IKeyExtractor<TValue> Extractor { get; set; }
@@ -22,7 +21,6 @@ namespace PEL.Framework.Redis.Indexing
         public UniquePayloadIndex(
             string indexName,
             IKeyExtractor<TValue> valueExtractor,
-            Func<TValue, string> masterKeyExtractor,
             string collectionRootName,
             ISerializer serializer,
             TimeSpan? expiry)
@@ -30,7 +28,6 @@ namespace PEL.Framework.Redis.Indexing
             Name = indexName;
             Extractor = valueExtractor;
             _hashIndexCollectionName = $"{collectionRootName}:{indexName.ToLowerInvariant()}";
-            _masterKeyExtractor = masterKeyExtractor;
             _expiry = expiry;
             _serializer = serializer;
         }
@@ -40,39 +37,47 @@ namespace PEL.Framework.Redis.Indexing
             TValue newItem,
             TValue oldItem)
         {
-            if (oldItem != null && !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem)))
+            if (oldItem != null && !Extractor.ExtractKey(newItem).Equals(Extractor.ExtractKey(oldItem), StringComparison.OrdinalIgnoreCase))
             {
                 Remove(context, new[] { oldItem });
             }
             Set(context, new[] { newItem });
         }
 
-
-        public async Task<IEnumerable<TValue>> GetMasterValues(IDatabaseAsync context, string key)
+        /// <summary>
+        /// Get values from index (in the case of a unique index, only one or 0 values should be returned)
+        /// </summary>
+        public async Task<TValue[]> GetMasterValuesAsync(IDatabaseAsync context, string indexedKey)
         {
-            var jsonValue = await context.HashGetAsync(_hashIndexCollectionName, key);
-            if (!jsonValue.HasValue) return new TValue[]{};
+            var jsonValue = await context.HashGetAsync(_hashIndexCollectionName, indexedKey);
+            if (!jsonValue.HasValue) return new TValue[] { };
             var item = _serializer.Deserialize<TValue>(jsonValue);
-            return new [] { item }; 
+            return new[] { item };
         }
 
-        public virtual async Task<IEnumerable<TValue>> GetAllMasterValues(IDatabaseAsync context)
+        /// <summary>
+        /// Get all indexed items
+        /// </summary>
+        public virtual async Task<TValue[]> GetAllMasterValuesAsync(IDatabaseAsync context)
         {
             var jsonValues = await context.HashValuesAsync(_hashIndexCollectionName);
-            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
+            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue)).ToArray();
             return items;
         }
 
-        public async Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string key)
+        public TValue[] GetMasterValues(IDatabase context, string key)
         {
-            var values = await GetMasterValues(context, key);
-            return values.Select(_masterKeyExtractor);
+            var jsonValue = context.HashGet(_hashIndexCollectionName, key);
+            if (!jsonValue.HasValue) return new TValue[] { };
+            var item = _serializer.Deserialize<TValue>(jsonValue);
+            return new[] { item };
         }
 
-        public async Task<IEnumerable<string>> GetAllMasterKeys(IDatabaseAsync context)
+        public TValue[] GetAllMasterValues(IDatabase context)
         {
-            var values = await GetAllMasterValues(context);
-            return values.Select(_masterKeyExtractor);
+            var jsonValues = context.HashValues(_hashIndexCollectionName);
+            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue)).ToArray();
+            return items;
         }
 
         public void Remove(
@@ -84,7 +89,7 @@ namespace PEL.Framework.Redis.Indexing
 
         public void Clear(
             IDatabaseAsync context
-            )
+        )
         {
             context.KeyDeleteAsync(_hashIndexCollectionName);
         }
@@ -92,7 +97,7 @@ namespace PEL.Framework.Redis.Indexing
         public void Set(
             IDatabaseAsync context,
             IEnumerable<TValue> items
-            )
+        )
         {
             var indexName = _hashIndexCollectionName;
             context.HashSetAsync(indexName, items.ToHashEntries(Extractor.ExtractKey, item => _serializer.Serialize(item)));
@@ -102,7 +107,5 @@ namespace PEL.Framework.Redis.Indexing
                 context.KeyExpireAsync(indexName, _expiry);
             }
         }
-
-
     }
 }

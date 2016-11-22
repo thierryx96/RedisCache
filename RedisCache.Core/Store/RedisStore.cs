@@ -21,102 +21,112 @@ namespace PEL.Framework.Redis.Store
         protected readonly ISerializer _serializer;
         protected readonly IDatabase _database;
 
-        protected readonly string _collectionRootName;
-        protected readonly IKeyExtractor<TValue> _masterKeyExtractor; 
+        protected IKeyExtractor<TValue> MasterKeyExtractor { get; }
         private const string CollectionMasterSuffix = "master";
 
-        public string CollectionRootName => _collectionRootName;
+        protected string CollectionRootName { get; }
 
         public RedisStore(
             IRedisDatabaseConnector connection,
             ISerializer serializer,
-            CollectionSettings<TValue> collectionDefinition)
+            CollectionSettings<TValue> collectionSettings)
         {
             _database = connection.GetConnectedDatabase();
             _serializer = serializer;
 
-            _collectionRootName = (collectionDefinition.Name ?? typeof(TValue).Name).ToLowerInvariant();
-            _masterKeyExtractor = collectionDefinition.MasterKeyExtractor;
-            Expiry = collectionDefinition.Expiry;
+            CollectionRootName = (collectionSettings.Name ?? typeof(TValue).Name).ToLowerInvariant();
+            CollectionMasterName = $"{CollectionRootName}:{CollectionMasterSuffix}";
+
+            MasterKeyExtractor = collectionSettings.MasterKeyExtractor;
+            Expiry = collectionSettings.Expiry;
         }
 
-        protected string GenerateMasterName() => $"{_collectionRootName}:{CollectionMasterSuffix}";
+        protected string CollectionMasterName { get; }
         protected TimeSpan? Expiry { get; }
 
-        public string ExtractMasterKey(TValue value) => _masterKeyExtractor.ExtractKey(value);
+        public string ExtractMasterKey(TValue value) => MasterKeyExtractor.ExtractKey(value);
 
         public TValue Get(string key)
         {
-            var jsonValue = _database.HashGet(GenerateMasterName(), key);
+            var jsonValue = _database.HashGet(CollectionMasterName, key);
             if (!jsonValue.HasValue) return default(TValue);
             var item = _serializer.Deserialize<TValue>(jsonValue);
             return item;
         }
 
-        public IEnumerable<TValue> GetAll()
+        public TValue[] GetAll()
         {
-            var jsonValues = _database.HashValues(GenerateMasterName());
-            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
+            var jsonValues = _database.HashValues(CollectionMasterName);
+            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue)).ToArray();
             return items;
         }
 
         public async Task<TValue> GetAsync(string key)
         {
-            var jsonValue = await _database.HashGetAsync(GenerateMasterName(), key);
+            var jsonValue = await _database.HashGetAsync(CollectionMasterName, key);
             if (!jsonValue.HasValue) return default(TValue);
             var item = _serializer.Deserialize<TValue>(jsonValue);
             return item;
         }
 
-        public virtual async Task<IEnumerable<TValue>> GetAllAsync()
+        public virtual async Task<TValue[]> GetAllAsync()
         {
-            var jsonValues = await _database.HashValuesAsync(GenerateMasterName());
+            var jsonValues = await _database.HashValuesAsync(CollectionMasterName);
             var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
-            return items;
+            return items.ToArray();
         }
 
         public virtual async Task ClearAsync()
         {
-            await _database.KeyDeleteAsync(GenerateMasterName());
+            await _database.KeyDeleteAsync(CollectionMasterName);
         }
 
         public virtual void Set(IEnumerable<TValue> items)
         {
             var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
-            _database.HashSet(GenerateMasterName(), entries);
+            _database.HashSet(CollectionMasterName, entries);
             if (Expiry.HasValue)
             {
-                _database.KeyExpire(GenerateMasterName(), Expiry);
+                _database.KeyExpire(CollectionMasterName, Expiry);
+            }
+        }
+
+        public virtual void AddOrUpdate(TValue item)
+        {
+            _database.HashSet(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
+            if (Expiry.HasValue)
+            {
+                _database.KeyExpire(CollectionMasterName, Expiry);
             }
         }
 
         public virtual async Task SetAsync(IEnumerable<TValue> items)
         {
             var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
-            await _database.HashSetAsync(GenerateMasterName(), entries);
+            await _database.HashSetAsync(CollectionMasterName, entries);
             if (Expiry.HasValue)
             {
-                await _database.KeyExpireAsync(GenerateMasterName(), Expiry);
+                await _database.KeyExpireAsync(CollectionMasterName, Expiry);
             }
         }
 
         public virtual async Task AddOrUpdateAsync(TValue item)
         {
-            await _database.HashSetAsync(GenerateMasterName(), ExtractMasterKey(item), _serializer.Serialize(item));
+            await _database.HashSetAsync(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
             if (Expiry.HasValue)
             {
-                await _database.KeyExpireAsync(GenerateMasterName(), Expiry);
+                await _database.KeyExpireAsync(CollectionMasterName, Expiry);
             }
         }
 
         public virtual async Task RemoveAsync(string key)
         {
-            await _database.HashDeleteAsync(GenerateMasterName(), key);
+            await _database.HashDeleteAsync(CollectionMasterName, key);
         }
 
         public virtual async Task RemoveAsync(IEnumerable<string> keys)
         {
-            await _database.HashDeleteAsync(GenerateMasterName(), keys.ToHashKeys());
+            await _database.HashDeleteAsync(CollectionMasterName, keys.ToHashKeys());
         }
     }
 }

@@ -50,14 +50,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Configuration\CollectionSettings.cs" />
     <Compile Include="Configuration\IndexSettings.cs" />
+    <Compile Include="Configuration\CollectionSettings.cs" />
+    <Compile Include="Configuration\CollectionWithIndexesSettings.cs" />
     <Compile Include="Database\IRedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseConnector.cs" />
     <Compile Include="Extensions\ExpirableStoreExtensions.cs" />
     <Compile Include="Extensions\RedisDataExtensions.cs" />
     <Compile Include="Extractors\IKeyExtractor.cs" />
-    <Compile Include="Extractors\KeyExtractorFactory.cs" />
+    <Compile Include="Indexing\IMasterValueResolver.cs" />
+    <Compile Include="Indexing\IMasterValueResolverAsync.cs" />
     <Compile Include="Indexing\IIndex.cs" />
     <Compile Include="Indexing\IndexFactory.cs" />
     <Compile Include="Indexing\UniquePayloadIndex.cs" />
@@ -66,13 +68,14 @@
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\DefaultJsonSerializer.cs" />
     <Compile Include="Database\RedisDatabaseManager.cs" />
+    <Compile Include="Store\Contracts\IRedisExpirableIndexedStore.cs" />
     <Compile Include="Store\Contracts\IRedisExpirableStore.cs" />
+    <Compile Include="Store\Contracts\IRedisReadIndexedStore.cs" />
     <Compile Include="Store\Contracts\IRedisReadIndexedStoreAsync.cs" />
     <Compile Include="Store\Contracts\IRedisReadStore.cs" />
     <Compile Include="Store\Contracts\IRedisReadStoreAsync.cs" />
     <Compile Include="Store\Contracts\IRedisWriteStore.cs" />
     <Compile Include="Store\Contracts\IRedisWriteStoreAsync.cs" />
-    <Compile Include="Store\IRedisIndexedStore.cs" />
     <Compile Include="Store\RedisIndexedStore.cs" />
     <Compile Include="Store\RedisStore.cs" />
   </ItemGroup>
