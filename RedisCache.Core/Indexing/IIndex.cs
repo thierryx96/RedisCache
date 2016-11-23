@@ -11,6 +11,5 @@ namespace PEL.Framework.Redis.Indexing
         void Remove(IDatabaseAsync context, IEnumerable<TValue> items);
         void Set(IDatabaseAsync context, IEnumerable<TValue> items);
         void AddOrUpdate(IDatabaseAsync context, TValue newItem, TValue oldItem);
-        void Clear(IDatabaseAsync context);
     }
 }

@@ -37,9 +37,7 @@ namespace PEL.Framework.Redis.Store
 
         public async Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string value)
             where TValueExtractor : IKeyExtractor<TValue>
-        {
-            return (await GetItemsByIndexAsync<TValueExtractor>(value)).Select(ExtractMasterKey).ToArray();
-        }
+        => (await GetItemsByIndexAsync<TValueExtractor>(value)).Select(ExtractMasterKey).ToArray();
 
         public async Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string value)
             where TValueExtractor : IKeyExtractor<TValue>
@@ -48,11 +46,17 @@ namespace PEL.Framework.Redis.Store
             return await foundIndex.GetMasterValuesAsync(_database, value);
         }
 
-        public string[] GetMasterKeysByIndex<TValueExtractor>(string value)
-            where TValueExtractor : IKeyExtractor<TValue>
+        public async Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> values) where TValueExtractor : IKeyExtractor<TValue>
+        => (await GetItemsByIndexAsync<TValueExtractor>(values)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
+
+        public async Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> values) where TValueExtractor : IKeyExtractor<TValue>
         {
-            return GetItemsByIndex<TValueExtractor>(value).Select(ExtractMasterKey).ToArray();
+            var foundIndex = GetIndexForExtractor<TValueExtractor>();
+            return await foundIndex.GetMasterValuesAsync(_database, values);
         }
+
+        public string[] GetMasterKeysByIndex<TValueExtractor>(string value) where TValueExtractor : IKeyExtractor<TValue>
+        => GetItemsByIndex<TValueExtractor>(value).Select(ExtractMasterKey).ToArray();
 
         public TValue[] GetItemsByIndex<TValueExtractor>(string value)
             where TValueExtractor : IKeyExtractor<TValue>
@@ -94,12 +98,17 @@ namespace PEL.Framework.Redis.Store
         {
             var transaction = _database.CreateTransaction();
 
-            foreach (var index in _indexManagers)
+            if (_indexManagers.Any())
             {
-                index.Clear(transaction);
+                // all main items to be cleared
+                var items = await GetAllAsync();
+                foreach (var index in _indexManagers)
+                {
+                    index.Remove(transaction, items);
+                }
             }
 
-            // flush main
+            // flush main items
             transaction.KeyDeleteAsync(CollectionMasterName);
 
             await transaction.ExecuteAsync();

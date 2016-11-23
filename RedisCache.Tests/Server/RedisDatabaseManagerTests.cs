@@ -32,15 +32,15 @@ namespace PEL.Framework.Redis.IntegrationTests.Server
             _multiplexer = ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(RedisConnectionOptions));
             _connection = new RedisTestDatabaseConnector(_multiplexer);
             _cache1 = new RedisStore<TestCompany>(
-        new RedisTestDatabaseConnector(_multiplexer),
-        new DefaultJsonSerializer(),
-        new CollectionSettings<TestCompany>() { MasterKeyExtractor = new TestCompanyKeyExtractor() }
-    );
+                new RedisTestDatabaseConnector(_multiplexer),
+                new DefaultJsonSerializer(),
+                new CollectionSettings<TestCompany> { MasterKeyExtractor = new TestCompanyKeyExtractor() }
+            );
 
             _cache2 = new RedisStore<TestPerson>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestPerson>() { MasterKeyExtractor = new TestPersonKeyExtractor() });
+                new CollectionSettings<TestPerson> { MasterKeyExtractor = new TestPersonKeyExtractor() });
             _databaseManager = new RedisDatabaseManager(_connection);
         }
 
@@ -65,22 +65,25 @@ namespace PEL.Framework.Redis.IntegrationTests.Server
             // assert
             Assert.That(allkeys, Has.Length.EqualTo(2));
         }
-
+     
         [Test]
-        public async Task ScanKeys_WhenUsingPattern_ShouldRetrieveFilteredKeys()
+        public async Task ScanKeys_WhenUsingPatternMatchingOneKey_ShouldRetrieveThatKeys()
         {
             // arrange
             await Task.WhenAll(
-                _cache1.AddOrUpdateAsync(new TestCompany { Id = "a" }),
-                _cache2.AddOrUpdateAsync(new TestPerson { Id = "b" })
+                _cache1.AddOrUpdateAsync(new TestCompany { Id = "a" }), // key of hashset : testcompany
+                _cache2.AddOrUpdateAsync(new TestPerson { Id = "b" })   // key of hashset : testperson
             );
 
             // act
-            var allkeys = _databaseManager.ScanKeys("*1*").ToArray();
+            var allkeys = _databaseManager.ScanKeys($"{nameof(TestCompany).ToLowerInvariant()}*").ToArray();
 
             // assert
             Assert.That(allkeys, Has.Length.EqualTo(1));
+            Assert.That(allkeys.Single().Contains(nameof(TestCompany).ToLowerInvariant()));
+
         }
+
 
         [Test]
         public async Task FlushAll_WhenStoreGotSomeKeys_ShouldLeaveStoreEmpty()

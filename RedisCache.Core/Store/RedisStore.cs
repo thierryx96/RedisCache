@@ -44,37 +44,28 @@ namespace PEL.Framework.Redis.Store
         protected string CollectionMasterName { get; }
         protected TimeSpan? Expiry { get; }
 
+        private TValue[] GetValuesFromEntries(IEnumerable<RedisValue> entries) =>
+            entries
+                .Where(entry => entry.HasValue) // not found hashes are return null from redis
+                .Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue))
+                .ToArray();
+
+        private TValue GetValueFromEntry(RedisValue entry) =>
+            entry.HasValue ? _serializer.Deserialize<TValue>(entry) : default(TValue);
+
         public string ExtractMasterKey(TValue value) => MasterKeyExtractor.ExtractKey(value);
 
-        public TValue Get(string key)
-        {
-            var jsonValue = _database.HashGet(CollectionMasterName, key);
-            if (!jsonValue.HasValue) return default(TValue);
-            var item = _serializer.Deserialize<TValue>(jsonValue);
-            return item;
-        }
+        public TValue Get(string key) => GetValueFromEntry(_database.HashGet(CollectionMasterName, key));
 
-        public TValue[] GetAll()
-        {
-            var jsonValues = _database.HashValues(CollectionMasterName);
-            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue)).ToArray();
-            return items;
-        }
+        public TValue[] Get(IEnumerable<string> keys) => GetValuesFromEntries(_database.HashGet(CollectionMasterName, keys.ToHashKeys()));
 
-        public async Task<TValue> GetAsync(string key)
-        {
-            var jsonValue = await _database.HashGetAsync(CollectionMasterName, key);
-            if (!jsonValue.HasValue) return default(TValue);
-            var item = _serializer.Deserialize<TValue>(jsonValue);
-            return item;
-        }
+        public TValue[] GetAll() => GetValuesFromEntries(_database.HashValues(CollectionMasterName));
 
-        public virtual async Task<TValue[]> GetAllAsync()
-        {
-            var jsonValues = await _database.HashValuesAsync(CollectionMasterName);
-            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue));
-            return items.ToArray();
-        }
+        public async Task<TValue> GetAsync(string key) => GetValueFromEntry(await _database.HashGetAsync(CollectionMasterName, key));
+
+        public async Task<TValue[]> GetAsync(IEnumerable<string> keys) => GetValuesFromEntries(await _database.HashGetAsync(CollectionMasterName, keys.ToHashKeys()));
+
+        public async Task<TValue[]> GetAllAsync() => GetValuesFromEntries(await _database.HashValuesAsync(CollectionMasterName));
 
         public virtual async Task ClearAsync()
         {

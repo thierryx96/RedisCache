@@ -8,18 +8,15 @@ namespace PEL.Framework.Redis.Indexing
     {
         private readonly TimeSpan? _expiry;
         private readonly string _masterCollectionRootName;
-        //private readonly IKeyExtractor<TValue> _masterKeyResolver;
         private readonly ISerializer _serializer;
 
         internal IndexFactory(
             string masterCollectionRootName,
             TimeSpan? expiry,
             ISerializer serializer
-            //IKeyExtractor<TValue> masterKeyResolver,
         )
         {
             _serializer = serializer;
-            //_masterKeyResolver = masterKeyResolver;
             _expiry = expiry;
             _masterCollectionRootName = masterCollectionRootName;
         }
@@ -36,7 +33,15 @@ namespace PEL.Framework.Redis.Indexing
                 return new UniquePayloadIndex<TValue>(
                     name ?? indexValueExtractor.GetType().Name,
                     indexValueExtractor,
-                    //  _masterKeyResolver,
+                    _masterCollectionRootName,
+                    _serializer,
+                    _expiry);
+            }
+            else if (withPayload)
+            {
+                return new LookupWithPayloadIndex<TValue>(
+                    name ?? indexValueExtractor.GetType().Name,
+                    indexValueExtractor,
                     _masterCollectionRootName,
                     _serializer,
                     _expiry);

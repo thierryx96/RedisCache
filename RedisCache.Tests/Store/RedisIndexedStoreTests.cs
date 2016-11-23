@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using NUnit.Framework;
 using PEL.Framework.Redis.Configuration;
 using PEL.Framework.Redis.IntegrationTests.Infrastructure;
@@ -10,64 +7,55 @@ using PEL.Framework.Redis.Serialization;
 using PEL.Framework.Redis.Store;
 using StackExchange.Redis;
 
-
-namespace RedisCache.Tests
+namespace PEL.Framework.Redis.IntegrationTests.Store
 {
-    
-
-    [Explicit]
     [TestFixture]
-    internal class RedisIndexedStoreTests 
+    internal class RedisIndexedStoreTests
     {
-        //private RedisIndexedStore<TestType1Entity> _cacheType1;
-        //private RedisIndexedStore<TestType2Entity> _cacheType2;
-        //private RedisIndexedStore<TestType1Entity> _cacheType1WithExpiry;
-
         private ConnectionMultiplexer _multiplexer;
         private const string RedisConnectionOptions = "localhost:6379,allowAdmin=true"; //TODO(thierryr): move to config file (if we are using a specific config for CI env. or Integration Tests)
 
         private RedisIndexedStore<TestCompany> _cacheType1;
         private RedisIndexedStore<TestPerson> _cacheType2;
-        private RedisIndexedStore<TestCompany> _cacheType1WithExpiry;
-
         private readonly RedisTestServer _server = new RedisTestServer(@"C:\Program Files\Redis");
 
-
         [OneTimeSetUp]
-        public  async Task OneTimeSetUp()
+        public async Task OneTimeSetUp()
         {
             _multiplexer = ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(RedisConnectionOptions));
 
             await _server.Start();
             _multiplexer = ConnectionMultiplexer.Connect(ConfigurationOptions.Parse(RedisConnectionOptions));
-            _connector = new RedisTestDatabaseConnector(_multiplexer);
 
             _cacheType1 = new RedisIndexedStore<TestCompany>(
-                    new RedisTestDatabaseConnector(_multiplexer),
-                    new DefaultJsonSerializer(),
-                    new CollectionSettings<TestCompany>() { MasterKeyExtractor = new TestCompanyKeyExtractor() },
-                    new []
+                new RedisTestDatabaseConnector(_multiplexer),
+                new DefaultJsonSerializer(),
+                new CollectionWithIndexesSettings<TestCompany>
+                {
+                    MasterKeyExtractor = new TestCompanyKeyExtractor(),
+                    Indexes = new[]
                     {
-                        new IndexSettings<TestCompany>() {Extractor  = new TestCompanyCategoryExtractor(), Unique = false, WithPayload = false},
-                        new IndexSettings<TestCompany>() {Extractor  = new TestCompanyNameExtractor(), Unique = true, WithPayload = true },
+                        new IndexSettings<TestCompany> { Extractor = new TestCompanyNameExtractor(), Unique = true, WithPayload = true },
+                        new IndexSettings<TestCompany> { Extractor = new TestCompanyCategoryExtractor(), Unique = false, WithPayload = true }
                     }
-                );
+                }
+            );
 
 
             _cacheType2 = new RedisIndexedStore<TestPerson>(
-                    new RedisTestDatabaseConnector(_multiplexer),
-                    new DefaultJsonSerializer(),
-                    new CollectionSettings<TestPerson>() { MasterKeyExtractor = new TestPersonKeyExtractor() },
-                    new[]
+                new RedisTestDatabaseConnector(_multiplexer),
+                new DefaultJsonSerializer(),
+                new CollectionWithIndexesSettings<TestPerson>
+                {
+                    MasterKeyExtractor = new TestPersonKeyExtractor(),
+                    Indexes = new[]
                     {
-                        new IndexSettings<TestPerson>() {Extractor  = new TestPersonNameExtractor(), Unique = true, WithPayload = true },
-                        new IndexSettings<TestPerson>() {Extractor  = new TestPersonNameExtractor(), Unique = true, WithPayload = false }
+                        new IndexSettings<TestPerson> { Extractor = new TestPersonNameExtractor(), Unique = true, WithPayload = true },
+                        new IndexSettings<TestPerson> { Extractor = new TestPersonEmployerSectorExtractor(), Unique = false, WithPayload = true }
                     }
-                );
+                }
+            );
         }
-
-        private static readonly List<TestCompany> TestType1Entities = Enumerable.Range(0, 10).Select(i => new TestCompany { Name = $"testType1#{i}", Id = $"id#{i}" }).ToList();
-        private RedisTestDatabaseConnector _connector;
 
         [SetUp]
         public async Task SetUp()
@@ -76,155 +64,156 @@ namespace RedisCache.Tests
             await _cacheType2.ClearAsync();
         }
 
-        [OneTimeTearDown]
-        public async Task OneTimeTearDown()
-        {
-            //await _cacheType1.ClearAsync();
-            //await _cacheType2.ClearAsync();
-            //_multiplexer?.Dispose();
-        }
-
         [Test]
-        public async Task AddOrUpdate_WhenAnEntityIsAdded_ThenIdCanBeRetrieved()
-        {
-            // arrange
-            var entity = new TestCompany { Name = "test", Id = "1", Category = "Cat"};
-
-            // act
-            await _cacheType1.AddOrUpdateAsync(entity);
-            var retrievedEntityId = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyNameExtractor>(entity.Name)).FirstOrDefault();
-
-            // assert
-            Assert.That(retrievedEntityId, Is.EqualTo(entity.Id));
-        }
-
-        [Test]
-        public async Task AddOrUpdate_WhenAnEntityIsAdded_ThenItCanBeRetrievedByValue()
+        public async Task RetrieveByUniqueIndex_WhenACompanyIsAdded_ThenItCanBeRetrieved()
         {
             // arrange
             var entity = new TestCompany { Name = "test", Id = "1", Category = "Cat" };
 
             // act
             await _cacheType1.AddOrUpdateAsync(entity);
+            var retrievedEntityId = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyNameExtractor>(entity.Name)).FirstOrDefault();
             var retrievedEntity = (await _cacheType1.GetItemsByIndexAsync<TestCompanyNameExtractor>(entity.Name)).FirstOrDefault();
 
             // assert
+            Assert.That(retrievedEntityId, Is.EqualTo(entity.Id));
             Assert.That(retrievedEntity, Is.EqualTo(entity));
         }
 
-
-        /*
         [Test]
-        public async Task AddOrUpdate_WhenAnEntityIsAddedWithExpiryOf1Second_ThenItCannotBeRetrieved()
+        public async Task RetrieveByUniqueIndex_WhenCompaniesNamesAreUpdated_ThenIndexedNamesAreCorrect()
         {
             // arrange
-            var entity = new TestCompany { Name = "test", Id = "1" };
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            var updatedBoeing = new TestCompany(TestCompany.Boeing.Id, "new Boeing", TestCompany.Boeing.Category);
+            var updatedEbay = new TestCompany(TestCompany.Ebay.Id, "new Ebay", TestCompany.Ebay.Category);
+
+            // re-add Boeing & Ebay updated to expected result
+            var expectedCompanies = TestCompany.AllCompanies
+                .Except(new[] { TestCompany.Boeing, TestCompany.Ebay })
+                .Concat(new[] { updatedBoeing, updatedEbay });
+
+            // update Boeing & Ebay in the actual cache
+            await _cacheType1.AddOrUpdateAsync(updatedBoeing);
+            await _cacheType1.AddOrUpdateAsync(updatedEbay);
+
+            // companies can be retrieved
+            foreach (var expectedCompany in expectedCompanies)
+            {
+                // act
+                var retrievedEntity = (await _cacheType1.GetItemsByIndexAsync<TestCompanyNameExtractor>(expectedCompany.Name)).Single();
+                var retrievedEntityId = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyNameExtractor>(expectedCompany.Name)).Single();
+
+                // assert
+                Assert.That(retrievedEntity, Is.EqualTo(expectedCompany));
+                Assert.That(retrievedEntityId, Is.EqualTo(expectedCompany.Id));
+            }
+
+            // old names don't lead to results
+            foreach (var oldCompany in new[] { TestCompany.Boeing, TestCompany.Ebay })
+            {
+                // act
+                var retrievedEntities = (await _cacheType1.GetItemsByIndexAsync<TestCompanyNameExtractor>(oldCompany.Name));
+                var retrievedEntityIds = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyNameExtractor>(oldCompany.Name));
+
+                // assert
+                Assert.That(retrievedEntities, Is.Empty);
+                Assert.That(retrievedEntityIds, Is.Empty);
+            }
+        }
+
+        [Test]
+        public async Task RetrieveByLookupIndex_WhenASingleCompanyIsAdded_ThenItCanBeRetrieved()
+        {
+            // arrange
+            var entity = new TestCompany { Name = "test", Id = "1", Category = "Cat" };
 
             // act
-            await _cacheType1WithExpiry.AddOrUpdate(entity);
-            var retrievedEntityBeforeExpiry = (await _cacheType1.GetItemsByIndex("name", entity.Name)).FirstOrDefault();
-
-            await Task.Delay(1500);
-            var retrievedEntityAfterExpiry = (await _cacheType1.GetItemsByIndex("name", entity.Name)).FirstOrDefault();
-            var retrievedEntityIdAfterExpiry = (await _cacheType1.GetKeysByIndex("name", entity.Name)).FirstOrDefault();
+            await _cacheType1.AddOrUpdateAsync(entity);
+            var retrievedEntity = (await _cacheType1.GetItemsByIndexAsync<TestCompanyCategoryExtractor>(entity.Category)).FirstOrDefault();
+            var retrievedEntityId = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyCategoryExtractor>(entity.Category)).FirstOrDefault();
 
             // assert
-            Assert.That(retrievedEntityBeforeExpiry.Name, Is.EqualTo(entity.Name));
-            Assert.That(retrievedEntityBeforeExpiry.Id, Is.EqualTo(entity.Id));
-
-            Assert.That(retrievedEntityAfterExpiry, Is.Null);
-            Assert.That(retrievedEntityIdAfterExpiry, Is.Null);
-
-        }
-
-
-
-        [Test]
-        public async Task GetAll_WhenStoreIsFull_ThenRemoveAll_ShouldBeEmpty()
-        {
-            // arrange
-            for (int i = 0; i < 20000; i++)
-            {
-                await _cacheType1.AddOrUpdate(new TestCompany { Name = $"name#{i}", Id = $"{i}" });
-            }
-
-            // act
-            var getAllItems = (await _cacheType1.GetAll()).ToArray();
-
-            List<TestCompany> manyGetItems = new List<TestCompany>();
-            for (int i = 0; i < 20000; i++)
-            {
-                manyGetItems.Add(await _cacheType1.Get(i.ToString()));
-            }
-
-            List<TestCompany> indexGetItems = new List<TestCompany>();
-            for (int i = 0; i < 20000; i++)
-            {
-                indexGetItems.Add((await _cacheType1.GetItemsByIndex("name", $"name#{i}")).First());
-            }
-
-            // assert
-            Assert.That(manyGetItems, Is.EquivalentTo(getAllItems));
-            Assert.That(indexGetItems, Is.EquivalentTo(getAllItems));
+            Assert.That(retrievedEntity, Is.EqualTo(entity));
+            Assert.That(retrievedEntityId, Is.EqualTo(entity.Id));
         }
 
         [Test]
-        public async Task AddOrUpdate_WhenAnEntityIsAdded_ThenUniqueIndexMustBeChanged()
+        public async Task RetrieveByLookupIndex_WhenCompaniesAreAdded_ThenIndexGroupsAreCorrect()
         {
             // arrange
-            var entity = new TestCompany { Name = "test", Id = "1" };
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+            var groupedCompanies = TestCompany.AllCompanies.ToLookup(company => company.Category);
 
-            // act
-            await _cacheType1.AddOrUpdate(entity);
-            var retrievedEntity = (await _cacheType1.GetItemsByIndex("name", entity.Name)).FirstOrDefault();
-            var retrievedEntityId = (await _cacheType1.GetKeysByIndex("name", entity.Name)).FirstOrDefault();
 
-            var entityChanged = new TestCompany { Name = "changed", Id = "1" };
-            await _cacheType1.AddOrUpdate(entityChanged);
+            foreach (var group in groupedCompanies)
+            {
+                // act
+                var retrievedCategoryEntities = (await _cacheType1.GetItemsByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
+                var retrievedCategoryEntityIds = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
 
-            retrievedEntity = (await _cacheType1.GetItemsByIndex("name", entity.Name)).FirstOrDefault();
-            retrievedEntityId = (await _cacheType1.GetKeysByIndex("name", entity.Name)).FirstOrDefault();
-
-            var retrievedChangedEntity = (await _cacheType1.GetItemsByIndex("name", entityChanged.Name)).FirstOrDefault();
-            var retrievedChangedEntityId = (await _cacheType1.GetKeysByIndex("name", entityChanged.Name)).FirstOrDefault();
-
-            // assert
-            Assert.That(retrievedEntityId, Is.Null);
-            Assert.That(retrievedEntity, Is.Null);
-            Assert.That(retrievedChangedEntityId, Is.EqualTo(entityChanged.Id));
-            Assert.That(retrievedChangedEntity.Name, Is.EqualTo(entityChanged.Name));
+                // assert
+                Assert.That(retrievedCategoryEntities, Is.EquivalentTo(group.ToArray()));
+                Assert.That(retrievedCategoryEntityIds, Is.EquivalentTo(group.Select(company => company.Id)));
+            }
         }
 
         [Test]
-        public async Task Scenario1()
+        public async Task RetrieveByLookupIndex_WhenCompaniesAreRemoved_ThenIndexGroupsAreCorrect()
         {
             // arrange
-            await _cacheType1.Set(allCompanies);
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
 
-            var retrievedAppleByName = (await _cacheType1.GetItemsByIndex("name", nameof(apple))).FirstOrDefault();
-            var retrievedCompaniesByGroup = (await _cacheType1.GetItemsByIndex("category", "tech"));
+            var removedCompanies = new[] { TestCompany.Boeing, TestCompany.Cargill };
+            var groupedCompanies = TestCompany.AllCompanies.Except(removedCompanies).ToLookup(company => company.Category);
 
-            Assert.That(retrievedAppleByName, Is.EqualTo(apple));
-            Assert.That(retrievedCompaniesByGroup, Has.Member(apple));
+            await _cacheType1.RemoveAsync(removedCompanies.Select(company => company.Id));
 
-            await _cacheType1.Remove(apple.Id);
-
-            retrievedAppleByName = (await _cacheType1.GetItemsByIndex("name", nameof(apple))).FirstOrDefault();
-            retrievedCompaniesByGroup = (await _cacheType1.GetItemsByIndex("category", "tech"));
-
-            Assert.That(retrievedAppleByName, Is.Null);
-            Assert.That(retrievedCompaniesByGroup, Has.No.Member(apple));
-
-            foreach (var item in retrievedCompaniesByGroup)
+            foreach (var group in groupedCompanies)
             {
-                await _cacheType1.Remove(item.Id);
+                // act
+                var retrievedCategoryEntities = (await _cacheType1.GetItemsByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
+                var retrievedCategoryEntityIds = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
+
+                // assert
+                Assert.That(retrievedCategoryEntities, Is.EquivalentTo(group.ToArray()));
+                Assert.That(retrievedCategoryEntityIds, Is.EquivalentTo(group.Select(company => company.Id)));
             }
-
-            retrievedCompaniesByGroup = (await _cacheType1.GetItemsByIndex("category", "tech"));
-            Assert.That(retrievedCompaniesByGroup, Is.Empty);
-
         }
-        */
 
+        [Test]
+        public async Task RetrieveByLookupIndex_WhenCompaniesAreUpdated_ThenIndexGroupsAreCorrect()
+        {
+            // arrange
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            var updatedBoeing = TestCompany.Boeing;
+            updatedBoeing.Category = TestCompany.Apple.Category; // boeing is now tech
+
+            var updatedEbay = TestCompany.Ebay;
+            updatedBoeing.Category = "ecom"; // ebay is actually e-com
+
+            // re-add Boeing & Ebay updated to expected result
+            var groupedCompanies = TestCompany.AllCompanies
+                .Except(new[] { TestCompany.Boeing, TestCompany.Ebay })
+                .Concat(new[] { updatedBoeing, updatedEbay })
+                .ToLookup(company => company.Category);
+
+            // update Boeing & Ebay in the actual cache
+            await _cacheType1.AddOrUpdateAsync(updatedBoeing);
+            await _cacheType1.AddOrUpdateAsync(updatedEbay);
+
+            foreach (var group in groupedCompanies)
+            {
+                // act
+                var retrievedCategoryEntities = (await _cacheType1.GetItemsByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
+                var retrievedCategoryEntityIds = (await _cacheType1.GetMasterKeysByIndexAsync<TestCompanyCategoryExtractor>(group.Key));
+
+                // assert
+                Assert.That(retrievedCategoryEntities, Is.EquivalentTo(group.ToArray()));
+                Assert.That(retrievedCategoryEntityIds, Is.EquivalentTo(group.Select(company => company.Id)));
+            }
+        }
     }
 }

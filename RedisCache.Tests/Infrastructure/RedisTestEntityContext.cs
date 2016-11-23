@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Remoting.Messaging;
-using System.Threading.Tasks;
 using PEL.Framework.Redis.Configuration;
 using PEL.Framework.Redis.Extractors;
-using PEL.Framework.Redis.Indexing;
 using PEL.Framework.Redis.Serialization;
 using PEL.Framework.Redis.Store;
 using StackExchange.Redis;
@@ -18,7 +14,7 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             return new RedisStore<TestCompany>(
                 new RedisTestDatabaseConnector(multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestCompany>() { Expiry = expiry, MasterKeyExtractor = new TestCompanyKeyExtractor() }
+                new CollectionSettings<TestCompany> { Expiry = expiry, MasterKeyExtractor = new TestCompanyKeyExtractor() }
             );
         }
     }
@@ -45,7 +41,12 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
 
     internal class TestPersonNameExtractor : IKeyExtractor<TestPerson>
     {
-        public string ExtractKey(TestPerson value) => $"{value.FirstName}-{value.LastName}" ;
+        public string ExtractKey(TestPerson value) => $"{value.FirstName}-{value.LastName}";
+    }
+
+    internal class TestPersonEmployerSectorExtractor : IKeyExtractor<TestPerson>
+    {
+        public string ExtractKey(TestPerson value) => value.Employer?.Category;
     }
 
 
@@ -86,7 +87,7 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             Category = "tech"
         };
 
-        internal static readonly TestCompany[] AllCompanies = {Apple, Boeing, Cargill, Dell, Ebay};
+        internal static readonly TestCompany[] AllCompanies = { Apple, Boeing, Cargill, Dell, Ebay };
 
         public TestCompany()
         {
@@ -107,7 +108,7 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
 
         public bool Equals(TestCompany other)
         {
-            return (other != null) && (Id == other.Id) && (Name == other.Name) && (Category == other.Category);
+            return other != null && Id == other.Id && Name == other.Name && Category == other.Category;
         }
 
         internal class ItemType
@@ -122,11 +123,15 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
         public string Id { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
-
+        public TestCompany Employer { get; set; }
 
         public bool Equals(TestPerson other)
         {
-            return (other != null) && (Id == other.Id) && (FirstName == other.FirstName) && (LastName == other.LastName);
+            return other != null 
+                && string.Equals(Id,other.Id, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(FirstName , other.FirstName, StringComparison.OrdinalIgnoreCase) 
+                && string.Equals(LastName, other.LastName, StringComparison.OrdinalIgnoreCase) 
+                && object.Equals(this.Employer,other.Employer) ;
         }
     }
 }

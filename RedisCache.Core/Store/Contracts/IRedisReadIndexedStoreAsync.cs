@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using PEL.Framework.Redis.Extractors;
 
 namespace PEL.Framework.Redis.Store.Contracts
@@ -9,6 +10,12 @@ namespace PEL.Framework.Redis.Store.Contracts
             where TValueExtractor : IKeyExtractor<TValue>;
 
         Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string value)
+            where TValueExtractor : IKeyExtractor<TValue>;
+
+        Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> values)
+            where TValueExtractor : IKeyExtractor<TValue>;
+
+        Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> values)
             where TValueExtractor : IKeyExtractor<TValue>;
     }
 }

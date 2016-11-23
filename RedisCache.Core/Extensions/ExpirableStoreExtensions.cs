@@ -32,16 +32,19 @@ namespace PEL.Framework.Redis.Extensions
             return allItems.FirstOrDefault(item => key.Equals(cache.ExtractMasterKey(item)));
         }
 
-        public static IEnumerable<T> GetAllOrLoad<T>(this IRedisExpirableStore<T> cache, Func<IEnumerable<T>> getAllItems)
+        public static async Task<IEnumerable<T>> GetOrLoadAsync<T>(this IRedisExpirableStore<T> cache, IEnumerable<string> keys, Func<Task<IEnumerable<T>>> getAllItems)
         {
-            var cachedItems = cache.GetAll().ToArray();
+            var expectedKeys = keys.ToArray();
+            var cachedItems = await cache.GetAsync(expectedKeys);
 
-            if (cachedItems.Any()) return cachedItems;
+            if (cachedItems.Length == expectedKeys.Length) return cachedItems;
 
-            var allItems = getAllItems().ToArray();
+            // some values are missing in the cache, repopulate with all items 
+            var allItems = (await getAllItems()).ToArray();
 
-            cache.Set(allItems);
-            return allItems;
+            await cache.SetAsync(allItems);
+
+            return allItems.Where(item => expectedKeys.Contains(cache.ExtractMasterKey(item)));
         }
     }
 }

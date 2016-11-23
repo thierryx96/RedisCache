@@ -55,14 +55,13 @@ namespace PEL.Framework.Redis.Indexing
             return new[] { item };
         }
 
-        /// <summary>
-        /// Get all indexed items
-        /// </summary>
-        public virtual async Task<TValue[]> GetAllMasterValuesAsync(IDatabaseAsync context)
+        public async Task<IDictionary<string, TValue[]>> GetMasterValuesAsync(IDatabaseAsync context, IEnumerable<string> indexedKeys)
         {
-            var jsonValues = await context.HashValuesAsync(_hashIndexCollectionName);
-            var items = jsonValues.Select(jsonValue => _serializer.Deserialize<TValue>(jsonValue)).ToArray();
-            return items;
+            var jsonValues = await context.HashGetAsync(_hashIndexCollectionName, indexedKeys.ToHashKeys());
+            return jsonValues
+                .Where(entry => entry.HasValue)
+                .Select(entry => _serializer.Deserialize<TValue>(entry))
+                .ToDictionary(item => Extractor.ExtractKey(item), item => new[] { item });
         }
 
         public TValue[] GetMasterValues(IDatabase context, string key)
@@ -85,13 +84,6 @@ namespace PEL.Framework.Redis.Indexing
             IEnumerable<TValue> items)
         {
             context.HashDeleteAsync(_hashIndexCollectionName, items.Select(Extractor.ExtractKey).ToHashKeys());
-        }
-
-        public void Clear(
-            IDatabaseAsync context
-        )
-        {
-            context.KeyDeleteAsync(_hashIndexCollectionName);
         }
 
         public void Set(
