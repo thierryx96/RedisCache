@@ -7,12 +7,12 @@ namespace PEL.Framework.Redis.Store.Contracts
         /// <summary>
         /// Get one single item from the collection
         /// </summary>
-        TValue Get(string key);
+        TValue Get(string masterKey);
 
         /// <summary>
         /// Get many items from the collection, filtered by keys
         /// </summary>
-        TValue[] Get(IEnumerable<string> keys);
+        TValue[] Get(IEnumerable<string> masterKeys);
 
         /// <summary>
         /// Get all items in the collection

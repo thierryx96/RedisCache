@@ -55,41 +55,35 @@ namespace PEL.Framework.Redis.Store
 
         public string ExtractMasterKey(TValue value) => MasterKeyExtractor.ExtractKey(value);
 
-        public TValue Get(string key) => GetValueFromEntry(_database.HashGet(CollectionMasterName, key));
+        #region "Sync Read API"
 
-        public TValue[] Get(IEnumerable<string> keys) => GetValuesFromEntries(_database.HashGet(CollectionMasterName, keys.ToHashKeys()));
+        public TValue Get(string masterKey) => GetValueFromEntry(_database.HashGet(CollectionMasterName, masterKey));
+
+        public TValue[] Get(IEnumerable<string> masterKeys) => GetValuesFromEntries(_database.HashGet(CollectionMasterName, masterKeys.ToHashKeys()));
 
         public TValue[] GetAll() => GetValuesFromEntries(_database.HashValues(CollectionMasterName));
 
-        public async Task<TValue> GetAsync(string key) => GetValueFromEntry(await _database.HashGetAsync(CollectionMasterName, key));
+        #endregion
 
-        public async Task<TValue[]> GetAsync(IEnumerable<string> keys) => GetValuesFromEntries(await _database.HashGetAsync(CollectionMasterName, keys.ToHashKeys()));
+        #region "Async Read API"
+
+        public async Task<TValue> GetAsync(string masterKey) => GetValueFromEntry(await _database.HashGetAsync(CollectionMasterName, masterKey));
+
+        public async Task<TValue[]> GetAsync(IEnumerable<string> masterKeys) => GetValuesFromEntries(await _database.HashGetAsync(CollectionMasterName, masterKeys.ToHashKeys()));
 
         public async Task<TValue[]> GetAllAsync() => GetValuesFromEntries(await _database.HashValuesAsync(CollectionMasterName));
+
+        #endregion
+
+        #region "Async Write API"
+
 
         public virtual async Task ClearAsync()
         {
             await _database.KeyDeleteAsync(CollectionMasterName);
         }
 
-        public virtual void Set(IEnumerable<TValue> items)
-        {
-            var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
-            _database.HashSet(CollectionMasterName, entries);
-            if (Expiry.HasValue)
-            {
-                _database.KeyExpire(CollectionMasterName, Expiry);
-            }
-        }
 
-        public virtual void AddOrUpdate(TValue item)
-        {
-            _database.HashSet(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
-            if (Expiry.HasValue)
-            {
-                _database.KeyExpire(CollectionMasterName, Expiry);
-            }
-        }
 
         public virtual async Task SetAsync(IEnumerable<TValue> items)
         {
@@ -110,14 +104,41 @@ namespace PEL.Framework.Redis.Store
             }
         }
 
-        public virtual async Task RemoveAsync(string key)
+        public virtual async Task RemoveAsync(string masterKey)
         {
-            await _database.HashDeleteAsync(CollectionMasterName, key);
+            await _database.HashDeleteAsync(CollectionMasterName, masterKey);
         }
 
-        public virtual async Task RemoveAsync(IEnumerable<string> keys)
+        public virtual async Task RemoveAsync(IEnumerable<string> masterKeys)
         {
-            await _database.HashDeleteAsync(CollectionMasterName, keys.ToHashKeys());
+            await _database.HashDeleteAsync(CollectionMasterName, masterKeys.ToHashKeys());
         }
+
+        #endregion
+
+        // // TODO: (trais, 28 Nov 2016) - get rid of the Sync Write API when/if no longer in use
+        #region "Sync Write API"
+
+
+        public virtual void Set(IEnumerable<TValue> items)
+        {
+            var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
+            _database.HashSet(CollectionMasterName, entries);
+            if (Expiry.HasValue)
+            {
+                _database.KeyExpire(CollectionMasterName, Expiry);
+            }
+        }
+
+        public virtual void AddOrUpdate(TValue item)
+        {
+            _database.HashSet(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
+            if (Expiry.HasValue)
+            {
+                _database.KeyExpire(CollectionMasterName, Expiry);
+            }
+        }
+
+        #endregion 
     }
 }

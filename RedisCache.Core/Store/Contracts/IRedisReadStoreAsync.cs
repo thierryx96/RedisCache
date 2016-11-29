@@ -8,12 +8,12 @@ namespace PEL.Framework.Redis.Store.Contracts
         /// <summary>
         /// Get one single item from the collection
         /// </summary>
-        Task<TValue> GetAsync(string key);
+        Task<TValue> GetAsync(string masterKey);
 
         /// <summary>
         /// Get many items from the collection, filtered by keys
         /// </summary>
-        Task<TValue[]> GetAsync(IEnumerable<string> keys);
+        Task<TValue[]> GetAsync(IEnumerable<string> masterKeys);
 
         /// <summary>
         /// Get all items in the collection

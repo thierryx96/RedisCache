@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using PEL.Framework.Redis.Indexing.Writers;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    internal interface IIndex<TValue>
+    interface IIndexValueConverter<TValue>
     {
-        IIndexWriter<TValue> IndexWriter { get; }
-        
+        string GetRedisValue(TValue item);
+        TValue GetItem(TValue item);
+
 
     }
 }

@@ -27,8 +27,6 @@ namespace PEL.Framework.Redis.Indexing
             ISerializer serializer,
             TimeSpan? expiry)
         {
-
-
             Name = indexName;
             IndexedKeyExtractor = indexedKeyExtractor;
             _indexCollectionPrefix = $"{collectionRootName}:{Name}";

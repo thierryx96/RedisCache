@@ -6,6 +6,6 @@
         IRedisReadStore<TValue>,
         IRedisReadStoreAsync<TValue>
     {
-        string ExtractMasterKey(TValue value);
+        string ExtractMasterKey(TValue item);
     }
 }

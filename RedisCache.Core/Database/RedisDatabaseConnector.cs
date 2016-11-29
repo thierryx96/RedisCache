@@ -2,14 +2,14 @@
 
 namespace PEL.Framework.Redis.Database
 {
-    public abstract class RedisDatabaseConnector : IRedisDatabaseConnector
+    public class RedisDatabaseConnector : IRedisDatabaseConnector
     {
         private readonly IConnectionMultiplexer _multiplexer;
         private readonly int _databaseId;
 
         private IDatabase _database;
 
-        protected RedisDatabaseConnector(IConnectionMultiplexer multiplexer, int databaseId)
+        public RedisDatabaseConnector(IConnectionMultiplexer multiplexer, int databaseId)
         {
             _multiplexer = multiplexer;
             _databaseId = databaseId;

@@ -7,6 +7,7 @@ using PEL.Framework.Redis.Database;
 using PEL.Framework.Redis.Extensions;
 using PEL.Framework.Redis.Extractors;
 using PEL.Framework.Redis.Indexing;
+using PEL.Framework.Redis.Indexing.Writers;
 using PEL.Framework.Redis.Serialization;
 using PEL.Framework.Redis.Store.Contracts;
 
@@ -20,7 +21,7 @@ namespace PEL.Framework.Redis.Store
     /// <typeparam name="TValue"></typeparam>
     public class RedisIndexedStore<TValue> : RedisStore<TValue>, IRedisExpirableIndexedStore<TValue>
     {
-        private readonly IEnumerable<IIndex<TValue>> _indexManagers;
+        private readonly IEnumerable<IIndexWriter<TValue>> _indexManagers;
 
         public RedisIndexedStore(
             IRedisDatabaseConnector connection,
@@ -32,45 +33,58 @@ namespace PEL.Framework.Redis.Store
                 settings)
         {
             var indexFactory = new IndexFactory<TValue>(CollectionRootName, Expiry, serializer);
-            _indexManagers = settings.Indexes.Select(indexDefinition => indexFactory.CreateIndex(indexDefinition.Unique, indexDefinition.WithPayload, indexDefinition.Extractor));
+            _indexManagers = settings.Indexes.Select(indexDefinition => indexFactory.CreateIndex(indexDefinition.Unique, indexDefinition.WithPayload, indexDefinition.Extractor, indexDefinition.Name));
         }
 
-        public async Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string value)
+        #region "Async Read API"
+
+        public async Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>
-        => (await GetItemsByIndexAsync<TValueExtractor>(value)).Select(ExtractMasterKey).ToArray();
+        => (await GetItemsByIndexAsync<TValueExtractor>(indexedKey)).Select(ExtractMasterKey).ToArray();
 
-        public async Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string value)
-            where TValueExtractor : IKeyExtractor<TValue>
-        {
-            var foundIndex = GetIndexForExtractor<TValueExtractor>();
-            return await foundIndex.GetMasterValuesAsync(_database, value);
-        }
-
-        public async Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> values) where TValueExtractor : IKeyExtractor<TValue>
-        => (await GetItemsByIndexAsync<TValueExtractor>(values)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
-
-        public async Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> values) where TValueExtractor : IKeyExtractor<TValue>
-        {
-            var foundIndex = GetIndexForExtractor<TValueExtractor>();
-            return await foundIndex.GetMasterValuesAsync(_database, values);
-        }
-
-        public string[] GetMasterKeysByIndex<TValueExtractor>(string value) where TValueExtractor : IKeyExtractor<TValue>
-        => GetItemsByIndex<TValueExtractor>(value).Select(ExtractMasterKey).ToArray();
-
-        public TValue[] GetItemsByIndex<TValueExtractor>(string value)
+        public async Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>
         {
             var foundIndex = GetIndexForExtractor<TValueExtractor>();
-            return foundIndex.GetMasterValues(_database, value);
+            return await foundIndex.GetMasterValuesAsync(_database, indexedKey);
         }
 
-        private IIndex<TValue> GetIndexForExtractor<TValueExtractor>()
+        public async Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        => (await GetItemsByIndexAsync<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
+
+        public async Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
         {
-            var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
-            if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
-            return foundIndex;
+            var foundIndex = GetIndexForExtractor<TValueExtractor>();
+            return await foundIndex.GetMasterValuesAsync(_database, indexedKeys);
         }
+
+        #endregion
+
+        #region "Sync Read API"
+
+        public string[] GetMasterKeysByIndex<TValueExtractor>(string indexedKey) where TValueExtractor : IKeyExtractor<TValue>
+        => GetItemsByIndex<TValueExtractor>(indexedKey).Select(ExtractMasterKey).ToArray();
+
+        public TValue[] GetItemsByIndex<TValueExtractor>(string indexedKey)
+            where TValueExtractor : IKeyExtractor<TValue>
+        {
+            var foundIndex = GetIndexForExtractor<TValueExtractor>();
+            return foundIndex.GetMasterValues(_database, indexedKey);
+        }
+
+        public IDictionary<string, string[]> GetMasterKeysByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        => (GetItemsByIndex<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
+
+        public IDictionary<string, TValue[]> GetItemsByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        {
+            var foundIndex = GetIndexForExtractor<TValueExtractor>();
+            return foundIndex.GetMasterValues(_database, indexedKeys);
+        }
+
+        #endregion
+
+        #region "Async Write API"
+            
 
         public override async Task SetAsync(IEnumerable<TValue> items)
         {
@@ -157,6 +171,60 @@ namespace PEL.Framework.Redis.Store
             }
 
             await transaction.ExecuteAsync();
+        }
+
+        #endregion
+
+        #region "Sync API"
+        public override void Set(IEnumerable<TValue> items)
+        {
+            var mainEntries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
+            var transaction = _database.CreateTransaction();
+
+            // set main
+            transaction.HashSetAsync(CollectionMasterName, mainEntries);
+            if (Expiry.HasValue)
+            {
+                transaction.KeyExpireAsync(CollectionMasterName, Expiry);
+            }
+
+            // set indexes
+            foreach (var index in _indexManagers)
+            {
+                index.Set(transaction, items);
+            }
+
+            transaction.Execute();
+        }
+
+        public override void AddOrUpdate(TValue item)
+        {
+            var oldItem = Get(ExtractMasterKey(item));
+
+            var transaction = _database.CreateTransaction();
+
+            foreach (var index in _indexManagers)
+            {
+                index.AddOrUpdate(transaction, item, oldItem);
+            }
+
+            // set main
+            transaction.HashSetAsync(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
+            if (Expiry.HasValue)
+            {
+                transaction.KeyExpireAsync(CollectionMasterName, Expiry);
+            }
+
+            transaction.Execute();
+        }
+
+        #endregion
+
+        private IIndexWriter<TValue> GetIndexForExtractor<TValueExtractor>()
+        {
+            var foundIndex = _indexManagers.FirstOrDefault(index => index.IndexedKeyExtractor.GetType() == typeof(TValueExtractor));
+            if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
+            return foundIndex;
         }
     }
 }

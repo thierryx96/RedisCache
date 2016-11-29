@@ -6,16 +6,16 @@ namespace PEL.Framework.Redis.Store.Contracts
 {
     public interface IRedisReadIndexedStoreAsync<TValue>
     {
-        Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string value)
+        Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>;
 
-        Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string value)
+        Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys)
             where TValueExtractor : IKeyExtractor<TValue>;
 
-        Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> values)
+        Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>;
 
-        Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> values)
+        Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys)
             where TValueExtractor : IKeyExtractor<TValue>;
     }
 }

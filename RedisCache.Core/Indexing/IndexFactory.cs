@@ -1,5 +1,6 @@
 ﻿using System;
 using PEL.Framework.Redis.Extractors;
+using PEL.Framework.Redis.Indexing.Writers;
 using PEL.Framework.Redis.Serialization;
 
 namespace PEL.Framework.Redis.Indexing
@@ -21,34 +22,34 @@ namespace PEL.Framework.Redis.Indexing
             _masterCollectionRootName = masterCollectionRootName;
         }
 
-        internal IIndex<TValue> CreateIndex<TExtractor>(
+        internal IIndexWriter<TValue> CreateIndex<TExtractor>(
             bool unique,
             bool withPayload,
-            TExtractor indexValueExtractor,
-            string name = null)
+            TExtractor indexedKeyExtractor,
+            string name)
             where TExtractor : IKeyExtractor<TValue>
         {
             if (withPayload && unique)
             {
                 return new UniquePayloadIndex<TValue>(
-                    name ?? indexValueExtractor.GetType().Name,
-                    indexValueExtractor,
+                    name ?? indexedKeyExtractor.GetType().Name,
+                    indexedKeyExtractor,
                     _masterCollectionRootName,
                     _serializer,
                     _expiry);
             }
             else if (withPayload)
             {
-                return new LookupWithPayloadIndex<TValue>(
-                    name ?? indexValueExtractor.GetType().Name,
-                    indexValueExtractor,
+                return new LookupPayloadIndex<TValue>(
+                    name ?? indexedKeyExtractor.GetType().Name,
+                    indexedKeyExtractor,
                     _masterCollectionRootName,
                     _serializer,
                     _expiry);
             }
 
-            // TODO: (trais, 21 Nov 2016) - implement other type of possible indexes
-            throw new NotImplementedException($"Index of this type : unique:'{unique}' and with payload: '{withPayload}') not supported yet.");
+            // TODO: (trais, 21 Nov 2016) - implement other type of possible indexes : keyed unique & keyed lookup 
+            throw new NotImplementedException($"Keyed indexes are not supported yet.");
         }
     }
 }
