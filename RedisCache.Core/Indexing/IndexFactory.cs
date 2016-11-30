@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Threading.Tasks;
 using PEL.Framework.Redis.Extractors;
+using PEL.Framework.Redis.Indexing.Indexes;
 using PEL.Framework.Redis.Indexing.Writers;
 using PEL.Framework.Redis.Serialization;
 
@@ -10,46 +12,77 @@ namespace PEL.Framework.Redis.Indexing
         private readonly TimeSpan? _expiry;
         private readonly string _masterCollectionRootName;
         private readonly ISerializer _serializer;
+        private readonly IKeyExtractor<TValue> _masterKeyExtractor;
 
         internal IndexFactory(
             string masterCollectionRootName,
             TimeSpan? expiry,
-            ISerializer serializer
+            ISerializer serializer,
+            IKeyExtractor<TValue> masterKeyExtractor
+
         )
         {
             _serializer = serializer;
+            _masterKeyExtractor = masterKeyExtractor;
             _expiry = expiry;
             _masterCollectionRootName = masterCollectionRootName;
         }
 
-        internal IIndexWriter<TValue> CreateIndex<TExtractor>(
+        internal IIndex<TValue> CreateKeyedIndex<TExtractor>(
             bool unique,
-            bool withPayload,
+            TExtractor indexedKeyExtractor,
+            Func<string, TValue> masterValueGetter,
+            string name)
+            where TExtractor : IKeyExtractor<TValue>
+        {
+            var indexName = $"{_masterCollectionRootName}:{name ?? indexedKeyExtractor.GetType().Name}";
+
+            if (unique)
+            {
+                return new UniqueKeyedIndex<TValue>(
+                    indexName,
+                    indexedKeyExtractor,
+                    _masterKeyExtractor,
+                    masterValueGetter,
+                    _expiry);
+            }
+            else
+            {
+                return new UniqueKeyedIndex<TValue>(
+                    indexName,
+                    indexedKeyExtractor,
+                    _masterKeyExtractor,
+                    masterValueGetter,
+                    _expiry);
+            }
+        }
+
+        internal IIndex<TValue> CreatePayloadIndex<TExtractor>(
+            bool unique,
             TExtractor indexedKeyExtractor,
             string name)
             where TExtractor : IKeyExtractor<TValue>
         {
-            if (withPayload && unique)
+            var indexName = $"{_masterCollectionRootName}:{name ?? indexedKeyExtractor.GetType().Name}";
+
+            if ( unique)
             {
                 return new UniquePayloadIndex<TValue>(
-                    name ?? indexedKeyExtractor.GetType().Name,
+                    indexName,
                     indexedKeyExtractor,
-                    _masterCollectionRootName,
+                    _masterKeyExtractor,
                     _serializer,
                     _expiry);
             }
-            else if (withPayload)
+            else
             {
                 return new LookupPayloadIndex<TValue>(
-                    name ?? indexedKeyExtractor.GetType().Name,
+                    indexName,
                     indexedKeyExtractor,
-                    _masterCollectionRootName,
+                    _masterKeyExtractor,
                     _serializer,
                     _expiry);
             }
-
-            // TODO: (trais, 21 Nov 2016) - implement other type of possible indexes : keyed unique & keyed lookup 
-            throw new NotImplementedException($"Keyed indexes are not supported yet.");
         }
     }
 }

@@ -4,10 +4,18 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing
 {
-    public interface IMasterKeyResolver
+    public interface IMasterKeyResolverAsync
     {
-        Task<IEnumerable<string>> GetMasterKeys(IDatabaseAsync context, string value);
-        Task<IEnumerable<string>> GetAllMasterKeys(IDatabaseAsync context);
+        Task<string[]> GetMasterKeysAsync(IDatabaseAsync context, string indexedKey);
+
+        /// <summary>
+        /// Get all the matched indexed values for the indexed keys
+        /// ...
+        /// indexedKey1 -> [values matching key 1]
+        /// indexedKey2 -> [values matching key 2]
+        /// ...
+        /// </summary>
+        Task<IDictionary<string, string[]>> GetMasterKeysAsync(IDatabaseAsync context, IEnumerable<string> indexedKeys);
 
     }
 

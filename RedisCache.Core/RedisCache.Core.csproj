@@ -50,13 +50,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common\IDataWriter.cs" />
     <Compile Include="Configuration\CollectionSettings.cs" />
+    <Compile Include="Configuration\CollectionWithIndexesSettings.cs" />
     <Compile Include="Configuration\IndexSettings.cs" />
     <Compile Include="Database\IRedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseConnector.cs" />
     <Compile Include="Database\RedisDatabaseManager.cs" />
-    <Compile Include="Database\RedisDefaultDatabaseConnector.cs" />
     <Compile Include="Expiry\ExpiryMessageSubscriber.cs" />
     <Compile Include="Expiry\MasterKeysExpiryStore.cs" />
     <Compile Include="Extensions\ExpirableStoreExtensions.cs" />
@@ -64,9 +63,16 @@
     <Compile Include="Extractors\KeyExtractorFactory.cs" />
     <Compile Include="Extractors\IKeyExtractor.cs" />
     <Compile Include="Indexing\IMasterKeyResolver.cs" />
-    <Compile Include="Indexing\IMasterValuesResolver.cs" />
-    <Compile Include="Indexing\LookupKeyIndex.cs" />
-    <Compile Include="Indexing\UniquePayloadIndex.cs" />
+    <Compile Include="Indexing\IMasterValueResolverAsync.cs" />
+    <Compile Include="Indexing\Indexes\LookupPayloadIndex.cs" />
+    <Compile Include="Indexing\Indexes\LookupKeyedIndex.cs" />
+    <Compile Include="Indexing\Indexes\UniqueKeyedIndex.cs" />
+    <Compile Include="Indexing\Readers\LookupIndexReader.cs" />
+    <Compile Include="Indexing\Readers\UniqueIndexReader.cs" />
+    <Compile Include="Indexing\Writers\IndexWriter.cs" />
+    <Compile Include="Indexing\Writers\LookupIndexWriter.cs" />
+    <Compile Include="Indexing\Writers\UniqueIndexWriter.cs" />
+    <Compile Include="Indexing\Indexes\UniquePayloadIndex.cs" />
     <Compile Include="Publishing\RedisExpiryMessageSubscriber.cs" />
     <Compile Include="Store\Contracts\IRedisExpirableStore.cs" />
     <Compile Include="Store\Contracts\IRedisIndexedStore.cs" />
@@ -77,7 +83,6 @@
     <Compile Include="Store\Contracts\IRedisWriteStoreAsync.cs" />
     <Compile Include="Indexing\IIndex.cs" />
     <Compile Include="Indexing\IndexFactory.cs" />
-    <Compile Include="Indexing\UniqueKeyIndex.cs" />
     <Compile Include="Serialization\ISerializer.cs" />
     <Compile Include="Serialization\DefaultJsonSerializer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -88,7 +93,9 @@
     <None Include="packages.config" />
     <None Include="RedisCache.Core.nuspec" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Common\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>E:\DEV\RedisCache\Tools\NuGet.exe pack E:\DEV\RedisCache\$(ProjectName)\$(ProjectName).nuspec</PostBuildEvent>

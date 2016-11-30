@@ -15,5 +15,9 @@ namespace PEL.Framework.Redis.Extensions
 
         // Get values prepared as a redis set
         public static ILookup<string, RedisValue> ToSets<TValue>(this IEnumerable<TValue> items, Func<TValue, string> mappingNameExtractor, Func<TValue, string> setItemExtrator) => items.Where(item => mappingNameExtractor(item) != null).ToLookup(mappingNameExtractor, item => (RedisValue) setItemExtrator(item));
+
+        // Get a singleton collection
+        public static T[] ToUnitOrEmpty<T>(this T value) => Equals(value,default(T)) ? new T[] { } : new T[] { value } ;
+
     }
 }

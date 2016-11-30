@@ -8,28 +8,23 @@ using StackExchange.Redis;
 namespace PEL.Framework.Redis.Indexing.Writers
 {
 
-    internal class LookupIndexWriter<TValue> : IIndexWriter<TValue>
+    internal class LookupIndexWriter<TValue> : IndexWriter<TValue>
     {
-        private readonly string _indexCollectionPrefix;
-        public IKeyExtractor<TValue> IndexedKeyExtractor { get; private set; }
-        TimeSpan? Expiry { get; }
-        private Func<TValue, string> IndexedValueExtractor { get; set; }
-        private string GenerateSetName(string indexedKey) => $"{_indexCollectionPrefix}[{indexedKey}]";
+        private readonly Func<string, string> _collectionNameGenerator;
+
+        private string GenerateSetName(string indexedKey) => _collectionNameGenerator(indexedKey);// $"{_indexCollectionPrefix}[{indexedKey}]";
 
         public LookupIndexWriter(
             IKeyExtractor<TValue> indexedKeyExtractor,
             Func<TValue, string> indexedValueExtractor,
-            string indexCollectionPrefix,
-            TimeSpan? expiry)
+            TimeSpan? expiry,
+            Func<string, string> indexCollectionNameGenerator) : base(indexedKeyExtractor, indexedValueExtractor, expiry)
         {
-            IndexedValueExtractor = indexedValueExtractor;
-            IndexedKeyExtractor = indexedKeyExtractor;
-            _indexCollectionPrefix = indexCollectionPrefix;
-            Expiry = expiry;
+            _collectionNameGenerator = indexCollectionNameGenerator;
         }
 
 
-        public void AddOrUpdate(IDatabaseAsync context, TValue newItem, TValue oldItem)
+        public override void AddOrUpdate(IDatabaseAsync context, TValue newItem, TValue oldItem)
         {
             var oldKey = oldItem != null ? IndexedKeyExtractor.ExtractKey(oldItem) : null;
             var newKey = newItem != null ? IndexedKeyExtractor.ExtractKey(newItem) : null;
@@ -45,7 +40,7 @@ namespace PEL.Framework.Redis.Indexing.Writers
             }
         }
 
-        public void Remove(IDatabaseAsync context, IEnumerable<TValue> items)
+        public override void Remove(IDatabaseAsync context, IEnumerable<TValue> items)
         {
             foreach (var item in items)
             {
@@ -53,7 +48,7 @@ namespace PEL.Framework.Redis.Indexing.Writers
             }
         }
 
-        public void Set(IDatabaseAsync context, IEnumerable<TValue> items)
+        public override void Set(IDatabaseAsync context, IEnumerable<TValue> items)
         {
             var indexEntries = items.ToSets(IndexedKeyExtractor.ExtractKey, IndexedValueExtractor).ToArray();
             foreach (var entry in indexEntries)

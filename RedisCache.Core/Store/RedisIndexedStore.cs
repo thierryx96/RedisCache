@@ -19,9 +19,9 @@ namespace PEL.Framework.Redis.Store
     /// This store support basic indexes, and maintain them in a transactional fashion
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
-    public class RedisIndexedStore<TValue> : RedisStore<TValue>, IRedisExpirableIndexedStore<TValue>
+    public class RedisIndexedStore<TValue> : RedisStore<TValue> //, IRedisExpirableIndexedStore<TValue>
     {
-        private readonly IEnumerable<IIndexWriter<TValue>> _indexManagers;
+        private readonly IEnumerable<IIndex<TValue>> _indexManagers;
 
         public RedisIndexedStore(
             IRedisDatabaseConnector connection,
@@ -32,8 +32,24 @@ namespace PEL.Framework.Redis.Store
                 serializer,
                 settings)
         {
-            var indexFactory = new IndexFactory<TValue>(CollectionRootName, Expiry, serializer);
-            _indexManagers = settings.Indexes.Select(indexDefinition => indexFactory.CreateIndex(indexDefinition.Unique, indexDefinition.WithPayload, indexDefinition.Extractor, indexDefinition.Name));
+            var indexFactory = new IndexFactory<TValue>(CollectionRootName, Expiry, serializer, MasterKeyExtractor);
+            _indexManagers = settings.Indexes
+                .Where(index => index.WithPayload)
+                .Select(
+                    indexDefinition =>
+                        indexFactory.CreatePayloadIndex(indexDefinition.Unique, indexDefinition.Extractor,
+                            indexDefinition.Name))
+                .Concat(
+                    settings.Indexes
+                        .Where(index => !index.WithPayload)
+                        .Select(
+                            indexDefinition =>
+                                indexFactory.CreateKeyedIndex(indexDefinition.Unique, indexDefinition.Extractor,
+                                    key => Get(key), indexDefinition.Name))
+
+                //todo  USE THE ASYNC API TO PASS Get(key)
+
+                );
         }
 
         #region "Async Read API"
@@ -62,24 +78,24 @@ namespace PEL.Framework.Redis.Store
 
         #region "Sync Read API"
 
-        public string[] GetMasterKeysByIndex<TValueExtractor>(string indexedKey) where TValueExtractor : IKeyExtractor<TValue>
-        => GetItemsByIndex<TValueExtractor>(indexedKey).Select(ExtractMasterKey).ToArray();
+        //public string[] GetMasterKeysByIndex<TValueExtractor>(string indexedKey) where TValueExtractor : IKeyExtractor<TValue>
+        //=> GetItemsByIndex<TValueExtractor>(indexedKey).Select(ExtractMasterKey).ToArray();
 
-        public TValue[] GetItemsByIndex<TValueExtractor>(string indexedKey)
-            where TValueExtractor : IKeyExtractor<TValue>
-        {
-            var foundIndex = GetIndexForExtractor<TValueExtractor>();
-            return foundIndex.GetMasterValues(_database, indexedKey);
-        }
+        //public TValue[] GetItemsByIndex<TValueExtractor>(string indexedKey)
+        //    where TValueExtractor : IKeyExtractor<TValue>
+        //{
+        //    var foundIndex = GetIndexForExtractor<TValueExtractor>();
+        //    return foundIndex.GetMasterValues(_database, indexedKey);
+        //}
 
-        public IDictionary<string, string[]> GetMasterKeysByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
-        => (GetItemsByIndex<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
+        //public IDictionary<string, string[]> GetMasterKeysByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        //=> (GetItemsByIndex<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
 
-        public IDictionary<string, TValue[]> GetItemsByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
-        {
-            var foundIndex = GetIndexForExtractor<TValueExtractor>();
-            return foundIndex.GetMasterValues(_database, indexedKeys);
-        }
+        //public IDictionary<string, TValue[]> GetItemsByIndex<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        //{
+        //    var foundIndex = GetIndexForExtractor<TValueExtractor>();
+        //    return foundIndex.GetMasterValues(_database, indexedKeys);
+        //}
 
         #endregion
 
@@ -220,9 +236,9 @@ namespace PEL.Framework.Redis.Store
 
         #endregion
 
-        private IIndexWriter<TValue> GetIndexForExtractor<TValueExtractor>()
+        private IIndex<TValue> GetIndexForExtractor<TValueExtractor>()
         {
-            var foundIndex = _indexManagers.FirstOrDefault(index => index.IndexedKeyExtractor.GetType() == typeof(TValueExtractor));
+            var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
             if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
             return foundIndex;
         }

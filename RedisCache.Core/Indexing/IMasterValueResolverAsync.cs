@@ -12,7 +12,7 @@ namespace PEL.Framework.Redis.Indexing
         Task<TValue[]> GetMasterValuesAsync(IDatabaseAsync context, string indexedKey);
 
         /// <summary>
-        /// Get all the matches for the indexed keys
+        /// Get all the matched indexed values for the indexed keys
         /// ...
         /// indexedKey1 -> [values matching key 1]
         /// indexedKey2 -> [values matching key 2]
