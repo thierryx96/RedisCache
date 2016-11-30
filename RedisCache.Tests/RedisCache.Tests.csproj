@@ -60,6 +60,7 @@
     <Otherwise />
   </Choose>
   <ItemGroup>
+    <Compile Include="Core\Class1.cs" />
     <Compile Include="Infrastructure\IMasterKeyResolver.cs" />
     <Compile Include="Infrastructure\RedisTestDatabaseConnector.cs" />
     <Compile Include="Infrastructure\RedisTestEntityContext.cs" />
@@ -70,10 +71,6 @@
     <Compile Include="Store\RedisStoreTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\PEL.Framework.Redis\PEL.Framework.Redis.csproj">
-      <Project>{C09DE478-E56E-446B-8421-BF500EBA4A3C}</Project>
-      <Name>PEL.Framework.Redis</Name>
-    </ProjectReference>
     <ProjectReference Include="..\RedisCache.Core\RedisCache.Core.csproj">
       <Project>{189FCC45-D3B9-40D9-8D1B-A7B1CE810B00}</Project>
       <Name>RedisCache.Core</Name>
