@@ -7,16 +7,14 @@ using PEL.Framework.Redis.Database;
 using PEL.Framework.Redis.Extensions;
 using PEL.Framework.Redis.Extractors;
 using PEL.Framework.Redis.Indexing;
-using PEL.Framework.Redis.Indexing.Writers;
 using PEL.Framework.Redis.Serialization;
-using PEL.Framework.Redis.Store.Contracts;
 
 #pragma warning disable 4014 //disabled, it on purpose that awaitable must not be awaited on transactions (https://github.com/StackExchange/StackExchange.Redis/blob/master/Docs/Transactions.md)
 
 namespace PEL.Framework.Redis.Store
 {
     /// <summary>
-    /// This store support basic indexes, and maintain them in a transactional fashion
+    ///     This store support basic indexes, and maintain them in a transactional fashion
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
     public class RedisIndexedStore<TValue> : RedisStore<TValue> //, IRedisExpirableIndexedStore<TValue>
@@ -47,16 +45,25 @@ namespace PEL.Framework.Redis.Store
                                 indexFactory.CreateKeyedIndex(indexDefinition.Unique, indexDefinition.Extractor,
                                     key => Get(key), indexDefinition.Name))
 
-                //todo  USE THE ASYNC API TO PASS Get(key)
-
+                    //todo  USE THE ASYNC API TO PASS Get(key)
                 );
+        }
+
+        private IIndex<TValue> GetIndexForExtractor<TValueExtractor>()
+        {
+            var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
+            if (foundIndex == null)
+                throw new ArgumentException(
+                    $"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.",
+                    nameof(TValueExtractor));
+            return foundIndex;
         }
 
         #region "Async Read API"
 
         public async Task<string[]> GetMasterKeysByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>
-        => (await GetItemsByIndexAsync<TValueExtractor>(indexedKey)).Select(ExtractMasterKey).ToArray();
+            => (await GetItemsByIndexAsync<TValueExtractor>(indexedKey)).Select(ExtractMasterKey).ToArray();
 
         public async Task<TValue[]> GetItemsByIndexAsync<TValueExtractor>(string indexedKey)
             where TValueExtractor : IKeyExtractor<TValue>
@@ -65,10 +72,14 @@ namespace PEL.Framework.Redis.Store
             return await foundIndex.GetMasterValuesAsync(_database, indexedKey);
         }
 
-        public async Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
-        => (await GetItemsByIndexAsync<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key, item => item.Value.Select(ExtractMasterKey).ToArray());
+        public async Task<IDictionary<string, string[]>> GetMasterKeysByIndexAsync<TValueExtractor>(
+            IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+            =>
+                (await GetItemsByIndexAsync<TValueExtractor>(indexedKeys)).ToDictionary(item => item.Key,
+                    item => item.Value.Select(ExtractMasterKey).ToArray());
 
-        public async Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
+        public async Task<IDictionary<string, TValue[]>> GetItemsByIndexAsync<TValueExtractor>(
+            IEnumerable<string> indexedKeys) where TValueExtractor : IKeyExtractor<TValue>
         {
             var foundIndex = GetIndexForExtractor<TValueExtractor>();
             return await foundIndex.GetMasterValuesAsync(_database, indexedKeys);
@@ -100,7 +111,6 @@ namespace PEL.Framework.Redis.Store
         #endregion
 
         #region "Async Write API"
-            
 
         public override async Task SetAsync(IEnumerable<TValue> items)
         {
@@ -111,15 +121,11 @@ namespace PEL.Framework.Redis.Store
             // set main
             transaction.HashSetAsync(CollectionMasterName, mainEntries);
             if (Expiry.HasValue)
-            {
                 transaction.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
 
             // set indexes
             foreach (var index in _indexManagers)
-            {
                 index.Set(transaction, items);
-            }
 
             await transaction.ExecuteAsync();
         }
@@ -133,9 +139,7 @@ namespace PEL.Framework.Redis.Store
                 // all main items to be cleared
                 var items = await GetAllAsync();
                 foreach (var index in _indexManagers)
-                {
                     index.Remove(transaction, items);
-                }
             }
 
             // flush main items
@@ -151,17 +155,13 @@ namespace PEL.Framework.Redis.Store
             {
                 var oldItem = await GetAsync(key);
                 if (!oldItem.Equals(default(TValue)))
-                {
                     oldItems.Add(oldItem);
-                }
             }
 
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
-            {
                 index.Remove(transaction, oldItems);
-            }
 
             await _database.HashDeleteAsync(CollectionMasterName, keys.ToHashKeys());
 
@@ -175,16 +175,12 @@ namespace PEL.Framework.Redis.Store
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
-            {
                 index.AddOrUpdate(transaction, item, oldItem);
-            }
 
             // set main
             transaction.HashSetAsync(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
             if (Expiry.HasValue)
-            {
                 transaction.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
 
             await transaction.ExecuteAsync();
         }
@@ -192,6 +188,7 @@ namespace PEL.Framework.Redis.Store
         #endregion
 
         #region "Sync API"
+
         public override void Set(IEnumerable<TValue> items)
         {
             var mainEntries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
@@ -200,15 +197,11 @@ namespace PEL.Framework.Redis.Store
             // set main
             transaction.HashSetAsync(CollectionMasterName, mainEntries);
             if (Expiry.HasValue)
-            {
                 transaction.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
 
             // set indexes
             foreach (var index in _indexManagers)
-            {
                 index.Set(transaction, items);
-            }
 
             transaction.Execute();
         }
@@ -220,27 +213,16 @@ namespace PEL.Framework.Redis.Store
             var transaction = _database.CreateTransaction();
 
             foreach (var index in _indexManagers)
-            {
                 index.AddOrUpdate(transaction, item, oldItem);
-            }
 
             // set main
             transaction.HashSetAsync(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
             if (Expiry.HasValue)
-            {
                 transaction.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
 
             transaction.Execute();
         }
 
         #endregion
-
-        private IIndex<TValue> GetIndexForExtractor<TValueExtractor>()
-        {
-            var foundIndex = _indexManagers.FirstOrDefault(index => index.Extractor.GetType() == typeof(TValueExtractor));
-            if (foundIndex == null) throw new ArgumentException($"A search by index must use a defined index. Index:'{typeof(TValueExtractor)}' is not defined on this collection.", nameof(TValueExtractor));
-            return foundIndex;
-        }
     }
 }

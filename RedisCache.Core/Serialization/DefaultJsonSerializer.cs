@@ -20,9 +20,7 @@ namespace PEL.Framework.Redis.Serialization
             _settings.Converters.Add(new StringEnumConverter());
 
             foreach (var converter in converters)
-            {
                 _settings.Converters.Add(converter);
-            }
         }
 
         public string Serialize<T>(T value)

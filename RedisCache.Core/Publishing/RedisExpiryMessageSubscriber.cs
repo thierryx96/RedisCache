@@ -6,15 +6,8 @@ namespace PEL.Framework.Redis.Publishing
 {
     public class RedisExpiryMessageSubscriber : IDisposable
     {
-        private readonly ISubscriber _subscriber;
         private readonly string _keySpaceChannel;
-
-        public static RedisExpiryMessageSubscriber CreateForCollectionType<TValue>(
-            IRedisDatabaseConnector connection
-        )
-        {
-            return new RedisExpiryMessageSubscriber(connection, typeof(TValue).Name.ToLowerInvariant());
-        }
+        private readonly ISubscriber _subscriber;
 
         protected RedisExpiryMessageSubscriber(
             IRedisDatabaseConnector connection,
@@ -26,20 +19,25 @@ namespace PEL.Framework.Redis.Publishing
             _keySpaceChannel = $"__keyspace@{db.Database}__:{collectionName}*";
         }
 
+        public void Dispose()
+        {
+            _subscriber.UnsubscribeAll();
+        }
+
+        public static RedisExpiryMessageSubscriber CreateForCollectionType<TValue>(
+            IRedisDatabaseConnector connection
+        )
+        {
+            return new RedisExpiryMessageSubscriber(connection, typeof(TValue).Name.ToLowerInvariant());
+        }
+
         public void SubscribeExpiry(Action<string> onExpiryMessage)
         {
             _subscriber.Subscribe(_keySpaceChannel, (ctx, message) =>
             {
                 if ((string) message == "expired")
-                {
                     onExpiryMessage(message);
-                }
             });
-        }
-
-        public void Dispose()
-        {
-            _subscriber.UnsubscribeAll();
         }
     }
 }

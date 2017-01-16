@@ -35,8 +35,8 @@
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="StackExchange.Redis, Version=1.1.608.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\StackExchange.Redis.1.1.608\lib\net46\StackExchange.Redis.dll</HintPath>
+    <Reference Include="StackExchange.Redis, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\StackExchange.Redis.1.2.0\lib\net46\StackExchange.Redis.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -62,7 +62,7 @@
     <Compile Include="Extensions\RedisDataExtensions.cs" />
     <Compile Include="Extractors\KeyExtractorFactory.cs" />
     <Compile Include="Extractors\IKeyExtractor.cs" />
-    <Compile Include="Indexing\IMasterKeyResolver.cs" />
+    <Compile Include="Indexing\IMasterKeyResolverAsync.cs" />
     <Compile Include="Indexing\IMasterValueResolverAsync.cs" />
     <Compile Include="Indexing\Indexes\LookupPayloadIndex.cs" />
     <Compile Include="Indexing\Indexes\LookupKeyedIndex.cs" />
@@ -98,7 +98,8 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>E:\DEV\RedisCache\Tools\NuGet.exe pack E:\DEV\RedisCache\$(ProjectName)\$(ProjectName).nuspec</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

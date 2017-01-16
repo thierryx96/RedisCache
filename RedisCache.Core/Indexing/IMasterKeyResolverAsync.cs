@@ -9,14 +9,12 @@ namespace PEL.Framework.Redis.Indexing
         Task<string[]> GetMasterKeysAsync(IDatabaseAsync context, string indexedKey);
 
         /// <summary>
-        /// Get all the matched indexed values for the indexed keys
-        /// ...
-        /// indexedKey1 -> [values matching key 1]
-        /// indexedKey2 -> [values matching key 2]
-        /// ...
+        ///     Get all the matched indexed values for the indexed keys
+        ///     ...
+        ///     indexedKey1 -> [values matching key 1]
+        ///     indexedKey2 -> [values matching key 2]
+        ///     ...
         /// </summary>
         Task<IDictionary<string, string[]>> GetMasterKeysAsync(IDatabaseAsync context, IEnumerable<string> indexedKeys);
-
     }
-
 }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace PEL.Framework.Redis.Database
 {
     /// <summary>
-    /// Utils methods on a Sever and Database level
+    ///     Utils methods on a Sever and Database level
     /// </summary>
     internal class RedisDatabaseManager
     {
@@ -17,20 +17,20 @@ namespace PEL.Framework.Redis.Database
         }
 
         /// <summary>
-        /// Flush all the keys on the database
+        ///     Flush all the keys on the database
         /// </summary>
         /// <returns></returns>
         public async Task FlushAll()
         {
             foreach (var endPoint in _connector.GetConnectedDatabase().Multiplexer.GetEndPoints())
-            {
-                await _connector.GetConnectedDatabase().Multiplexer.GetServer(endPoint).FlushDatabaseAsync(database: _connector.GetConnectedDatabase().Database);
-            }
+                await _connector.GetConnectedDatabase()
+                    .Multiplexer.GetServer(endPoint)
+                    .FlushDatabaseAsync(_connector.GetConnectedDatabase().Database);
         }
 
         /// <summary>
-        /// Search for the keys on a db given a pattern.
-        /// Extremely inefficient : should be used with care, as it scan the entire key space
+        ///     Search for the keys on a db given a pattern.
+        ///     Extremely inefficient : should be used with care, as it scan the entire key space
         /// </summary>
         /// <param name="pattern"></param>
         /// <returns></returns>
@@ -38,7 +38,10 @@ namespace PEL.Framework.Redis.Database
         {
             return
                 from endPoint in _connector.GetConnectedDatabase().Multiplexer.GetEndPoints()
-                from key in _connector.GetConnectedDatabase().Multiplexer.GetServer(endPoint).Keys(database: _connector.GetConnectedDatabase().Database, pattern: pattern)
+                from key in
+                _connector.GetConnectedDatabase()
+                    .Multiplexer.GetServer(endPoint)
+                    .Keys(_connector.GetConnectedDatabase().Database, pattern)
                 select key.ToString();
         }
     }

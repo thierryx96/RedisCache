@@ -5,12 +5,8 @@ using StackExchange.Redis;
 
 namespace PEL.Framework.Redis.Indexing.Writers
 {
-    internal abstract class IndexWriter<TValue> 
+    internal abstract class IndexWriter<TValue>
     {
-        protected IKeyExtractor<TValue> IndexedKeyExtractor { get; private set; }
-        protected TimeSpan? Expiry { get; }
-        protected Func<TValue, string> IndexedValueExtractor { get; set; }
-
         protected IndexWriter(
             IKeyExtractor<TValue> indexedKeyExtractor,
             Func<TValue, string> indexedValueExtractor,
@@ -20,6 +16,10 @@ namespace PEL.Framework.Redis.Indexing.Writers
             IndexedKeyExtractor = indexedKeyExtractor;
             Expiry = expiry;
         }
+
+        protected IKeyExtractor<TValue> IndexedKeyExtractor { get; private set; }
+        protected TimeSpan? Expiry { get; }
+        protected Func<TValue, string> IndexedValueExtractor { get; set; }
 
         public abstract void Remove(IDatabaseAsync context, IEnumerable<TValue> items);
         public abstract void Set(IDatabaseAsync context, IEnumerable<TValue> items);

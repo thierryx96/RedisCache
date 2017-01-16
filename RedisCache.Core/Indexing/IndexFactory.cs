@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Threading.Tasks;
 using PEL.Framework.Redis.Extractors;
 using PEL.Framework.Redis.Indexing.Indexes;
-using PEL.Framework.Redis.Indexing.Writers;
 using PEL.Framework.Redis.Serialization;
 
 namespace PEL.Framework.Redis.Indexing
@@ -11,15 +9,14 @@ namespace PEL.Framework.Redis.Indexing
     {
         private readonly TimeSpan? _expiry;
         private readonly string _masterCollectionRootName;
-        private readonly ISerializer _serializer;
         private readonly IKeyExtractor<TValue> _masterKeyExtractor;
+        private readonly ISerializer _serializer;
 
         internal IndexFactory(
             string masterCollectionRootName,
             TimeSpan? expiry,
             ISerializer serializer,
             IKeyExtractor<TValue> masterKeyExtractor
-
         )
         {
             _serializer = serializer;
@@ -38,23 +35,18 @@ namespace PEL.Framework.Redis.Indexing
             var indexName = $"{_masterCollectionRootName}:{name ?? indexedKeyExtractor.GetType().Name}";
 
             if (unique)
-            {
                 return new UniqueKeyedIndex<TValue>(
                     indexName,
                     indexedKeyExtractor,
                     _masterKeyExtractor,
                     masterValueGetter,
                     _expiry);
-            }
-            else
-            {
-                return new UniqueKeyedIndex<TValue>(
-                    indexName,
-                    indexedKeyExtractor,
-                    _masterKeyExtractor,
-                    masterValueGetter,
-                    _expiry);
-            }
+            return new UniqueKeyedIndex<TValue>(
+                indexName,
+                indexedKeyExtractor,
+                _masterKeyExtractor,
+                masterValueGetter,
+                _expiry);
         }
 
         internal IIndex<TValue> CreatePayloadIndex<TExtractor>(
@@ -65,24 +57,19 @@ namespace PEL.Framework.Redis.Indexing
         {
             var indexName = $"{_masterCollectionRootName}:{name ?? indexedKeyExtractor.GetType().Name}";
 
-            if ( unique)
-            {
+            if (unique)
                 return new UniquePayloadIndex<TValue>(
                     indexName,
                     indexedKeyExtractor,
                     _masterKeyExtractor,
                     _serializer,
                     _expiry);
-            }
-            else
-            {
-                return new LookupPayloadIndex<TValue>(
-                    indexName,
-                    indexedKeyExtractor,
-                    _masterKeyExtractor,
-                    _serializer,
-                    _expiry);
-            }
+            return new LookupPayloadIndex<TValue>(
+                indexName,
+                indexedKeyExtractor,
+                _masterKeyExtractor,
+                _serializer,
+                _expiry);
         }
     }
 }

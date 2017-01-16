@@ -38,7 +38,7 @@ namespace PEL.Framework.Redis.Indexing.Writers
             TValue newItem,
             TValue oldItem)
         {
-            if ((oldItem != null) &&
+            if (oldItem != null &&
                 !IndexedKeyExtractor.ExtractKey(newItem)
                     .Equals(IndexedKeyExtractor.ExtractKey(oldItem), StringComparison.OrdinalIgnoreCase))
                 Remove(context, new[] {oldItem});

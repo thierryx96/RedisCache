@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using StackExchange.Redis;
 
@@ -11,16 +10,18 @@ namespace PEL.Framework.Redis.Indexing.Readers
     {
         private readonly Func<string, string> _indexCollectionNameGenerator;
         private readonly Func<string, TIndexedValue> _indexedValueReader;
-        private string GenerateSetName(string indexedKey) => _indexCollectionNameGenerator(indexedKey);// $"{_indexCollectionPrefix}[{indexedKey}]";
 
         public LookupIndexReader(
             Func<string, string> indexCollectionNameGenerator,
             Func<string, TIndexedValue> indexedValueReader // json -> something
-            )
+        )
         {
             _indexCollectionNameGenerator = indexCollectionNameGenerator;
             _indexedValueReader = indexedValueReader;
         }
+
+        private string GenerateSetName(string indexedKey) => _indexCollectionNameGenerator(indexedKey);
+        // $"{_indexCollectionPrefix}[{indexedKey}]";
 
         public async Task<TIndexedValue[]> GetAsync(IDatabaseAsync context, string indexedKey)
         {
@@ -29,13 +30,12 @@ namespace PEL.Framework.Redis.Indexing.Readers
             return jsonValues.Select(jsonValue => _indexedValueReader(jsonValue)).ToArray();
         }
 
-        public async Task<IDictionary<string, TIndexedValue[]>> GetAsync(IDatabaseAsync context, IEnumerable<string> indexedKeys)
+        public async Task<IDictionary<string, TIndexedValue[]>> GetAsync(IDatabaseAsync context,
+            IEnumerable<string> indexedKeys)
         {
             IDictionary<string, TIndexedValue[]> indexedGroups = new Dictionary<string, TIndexedValue[]>();
             foreach (var indexedKey in indexedKeys)
-            {
                 indexedGroups[indexedKey] = await GetAsync(context, indexedKey);
-            }
             return indexedGroups;
         }
     }

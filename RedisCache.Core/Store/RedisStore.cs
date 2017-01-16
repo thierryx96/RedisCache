@@ -13,18 +13,14 @@ using StackExchange.Redis;
 namespace PEL.Framework.Redis.Store
 {
     /// <summary>
-    /// Simple Redis Store implementation, store and manage a collection of keys (master keys)
+    ///     Simple Redis Store implementation, store and manage a collection of keys (master keys)
     /// </summary>
     /// <typeparam name="TValue"></typeparam>
     public class RedisStore<TValue> : IRedisExpirableStore<TValue>
     {
-        protected readonly ISerializer _serializer;
-        protected readonly IDatabase _database;
-
-        protected IKeyExtractor<TValue> MasterKeyExtractor { get; }
         private const string CollectionMasterSuffix = "master";
-
-        protected string CollectionRootName { get; }
+        protected readonly IDatabase _database;
+        protected readonly ISerializer _serializer;
 
         public RedisStore(
             IRedisDatabaseConnector connection,
@@ -41,8 +37,14 @@ namespace PEL.Framework.Redis.Store
             Expiry = collectionSettings.Expiry;
         }
 
+        protected IKeyExtractor<TValue> MasterKeyExtractor { get; }
+
+        protected string CollectionRootName { get; }
+
         protected string CollectionMasterName { get; }
         protected TimeSpan? Expiry { get; }
+
+        public string ExtractMasterKey(TValue value) => MasterKeyExtractor.ExtractKey(value);
 
         private TValue[] GetValuesFromEntries(IEnumerable<RedisValue> entries) =>
             entries
@@ -53,13 +55,12 @@ namespace PEL.Framework.Redis.Store
         private TValue GetValueFromEntry(RedisValue entry) =>
             entry.HasValue ? _serializer.Deserialize<TValue>(entry) : default(TValue);
 
-        public string ExtractMasterKey(TValue value) => MasterKeyExtractor.ExtractKey(value);
-
         #region "Sync Read API"
 
         public TValue Get(string masterKey) => GetValueFromEntry(_database.HashGet(CollectionMasterName, masterKey));
 
-        public TValue[] Get(IEnumerable<string> masterKeys) => GetValuesFromEntries(_database.HashGet(CollectionMasterName, masterKeys.ToHashKeys()));
+        public TValue[] Get(IEnumerable<string> masterKeys)
+            => GetValuesFromEntries(_database.HashGet(CollectionMasterName, masterKeys.ToHashKeys()));
 
         public TValue[] GetAll() => GetValuesFromEntries(_database.HashValues(CollectionMasterName));
 
@@ -67,16 +68,18 @@ namespace PEL.Framework.Redis.Store
 
         #region "Async Read API"
 
-        public async Task<TValue> GetAsync(string masterKey) => GetValueFromEntry(await _database.HashGetAsync(CollectionMasterName, masterKey));
+        public async Task<TValue> GetAsync(string masterKey)
+            => GetValueFromEntry(await _database.HashGetAsync(CollectionMasterName, masterKey));
 
-        public async Task<TValue[]> GetAsync(IEnumerable<string> masterKeys) => GetValuesFromEntries(await _database.HashGetAsync(CollectionMasterName, masterKeys.ToHashKeys()));
+        public async Task<TValue[]> GetAsync(IEnumerable<string> masterKeys)
+            => GetValuesFromEntries(await _database.HashGetAsync(CollectionMasterName, masterKeys.ToHashKeys()));
 
-        public async Task<TValue[]> GetAllAsync() => GetValuesFromEntries(await _database.HashValuesAsync(CollectionMasterName));
+        public async Task<TValue[]> GetAllAsync()
+            => GetValuesFromEntries(await _database.HashValuesAsync(CollectionMasterName));
 
         #endregion
 
         #region "Async Write API"
-
 
         public virtual async Task ClearAsync()
         {
@@ -84,24 +87,19 @@ namespace PEL.Framework.Redis.Store
         }
 
 
-
         public virtual async Task SetAsync(IEnumerable<TValue> items)
         {
             var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
             await _database.HashSetAsync(CollectionMasterName, entries);
             if (Expiry.HasValue)
-            {
                 await _database.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
         }
 
         public virtual async Task AddOrUpdateAsync(TValue item)
         {
             await _database.HashSetAsync(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
             if (Expiry.HasValue)
-            {
                 await _database.KeyExpireAsync(CollectionMasterName, Expiry);
-            }
         }
 
         public virtual async Task RemoveAsync(string masterKey)
@@ -117,28 +115,24 @@ namespace PEL.Framework.Redis.Store
         #endregion
 
         // // TODO: (trais, 28 Nov 2016) - get rid of the Sync Write API when/if no longer in use
-        #region "Sync Write API"
 
+        #region "Sync Write API"
 
         public virtual void Set(IEnumerable<TValue> items)
         {
             var entries = items.ToHashEntries(ExtractMasterKey, item => _serializer.Serialize(item));
             _database.HashSet(CollectionMasterName, entries);
             if (Expiry.HasValue)
-            {
                 _database.KeyExpire(CollectionMasterName, Expiry);
-            }
         }
 
         public virtual void AddOrUpdate(TValue item)
         {
             _database.HashSet(CollectionMasterName, ExtractMasterKey(item), _serializer.Serialize(item));
             if (Expiry.HasValue)
-            {
                 _database.KeyExpire(CollectionMasterName, Expiry);
-            }
         }
 
-        #endregion 
+        #endregion
     }
 }
