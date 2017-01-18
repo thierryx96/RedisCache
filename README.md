@@ -32,15 +32,13 @@
 
 http://redis.io/topics/data-types-intro
 
-| Structure type    | What it contains                                                             | Structure read/write ability                                                                                              | Application
+| Structure type    | What it contains                                                             | Structure read/write ability                                                                                              |
 |-------------------|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
 | STRING            | Strings, integers, or floating-point values                                  | Operate on the whole string, parts, increment/ decrement the integers and floats                                          |
 | LIST              | Linked list of strings                                                       | Push or pop items from both ends, trim based on offsets, read individual or multiple items, find or remove items by value |
 | SET               | Unordered collection of unique strings                                       | Add, fetch, or remove individual items, check membership, intersect, union, difference, fetch random items                |
 | HASH              | Unordered hash table of keys to values                                       | Add, fetch, or remove individual items, fetch the whole hash                                                              |
 | ZSET (sorted set) | Ordered mapping of string members to floating-point scores, ordered by score | Add, fetch, or remove individual values, fetch items based on score ranges or member value                                |
-
-The right choice of the data types depends solely of the nature of the data that we plan to persists and how we want it to be retrieved. For example if we want a collection of keys to be retrieved as a whole (e.g. )
 
 ### Strings
 
