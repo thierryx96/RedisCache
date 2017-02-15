@@ -1,5 +1,6 @@
 # Redis
 
+
 ## TL;DR (to install, configure and start Redis on your box)
 
 1. Download the latest Redis Windows Distribution from: https://github.com/MSOpenTech/redis/releases. Once run this will install Redi as a Windows Service and start it.
