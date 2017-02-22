@@ -67,7 +67,8 @@
     <Compile Include="Infrastructure\RedisTestServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Server\RedisDatabaseManagerTests.cs" />
-    <Compile Include="Store\RedisIndexedStoreTests.cs" />
+    <Compile Include="Store\RedisKeyedIndexedStoreTests.cs" />
+    <Compile Include="Store\RedisPayloadIndexedStoreTests.cs" />
     <Compile Include="Store\RedisStoreTests.cs" />
   </ItemGroup>
   <ItemGroup>

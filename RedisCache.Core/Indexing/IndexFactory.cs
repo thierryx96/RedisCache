@@ -41,12 +41,13 @@ namespace PEL.Framework.Redis.Indexing
                     _masterKeyExtractor,
                     masterValueGetter,
                     _expiry);
-            return new UniqueKeyedIndex<TValue>(
-                indexName,
-                indexedKeyExtractor,
-                _masterKeyExtractor,
-                masterValueGetter,
-                _expiry);
+            else            
+                return new LookupPayloadIndex<TValue>(
+                    indexName,
+                    indexedKeyExtractor,
+                    _masterKeyExtractor,
+                    _serializer,
+                    _expiry);            
         }
 
         internal IIndex<TValue> CreatePayloadIndex<TExtractor>(
@@ -64,12 +65,13 @@ namespace PEL.Framework.Redis.Indexing
                     _masterKeyExtractor,
                     _serializer,
                     _expiry);
-            return new LookupPayloadIndex<TValue>(
-                indexName,
-                indexedKeyExtractor,
-                _masterKeyExtractor,
-                _serializer,
-                _expiry);
+            else
+                return new LookupPayloadIndex<TValue>(
+                    indexName,
+                    indexedKeyExtractor,
+                    _masterKeyExtractor,
+                    _serializer,
+                    _expiry);
         }
     }
 }

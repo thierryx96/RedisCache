@@ -10,7 +10,7 @@ using StackExchange.Redis;
 namespace PEL.Framework.Redis.IntegrationTests.Store
 {
     [TestFixture]
-    internal class RedisIndexedStoreTests
+    internal class RedisKeyedIndexedStoreTests
     {
         private ConnectionMultiplexer _multiplexer;
         private const string RedisConnectionOptions = "localhost:6379,allowAdmin=true"; //TODO(thierryr): move to config file (if we are using a specific config for CI env. or Integration Tests)
@@ -35,12 +35,11 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
                     MasterKeyExtractor = new TestCompanyKeyExtractor(),
                     Indexes = new[]
                     {
-                        new IndexSettings<TestCompany> { Extractor = new TestCompanyNameExtractor(), Unique = true, WithPayload = true },
-                        new IndexSettings<TestCompany> { Extractor = new TestCompanyCategoryExtractor(), Unique = false, WithPayload = true }
+                        new IndexSettings<TestCompany> { Extractor = new TestCompanyNameExtractor(), Unique = true, WithPayload = false },
+                        new IndexSettings<TestCompany> { Extractor = new TestCompanyCategoryExtractor(), Unique = false, WithPayload = false }
                     }
                 }
             );
-
 
             _cacheType2 = new RedisIndexedStore<TestPerson>(
                 new RedisTestDatabaseConnector(_multiplexer),
@@ -50,8 +49,8 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
                     MasterKeyExtractor = new TestPersonKeyExtractor(),
                     Indexes = new[]
                     {
-                        new IndexSettings<TestPerson> { Extractor = new TestPersonNameExtractor(), Unique = true, WithPayload = true },
-                        new IndexSettings<TestPerson> { Extractor = new TestPersonEmployerSectorExtractor(), Unique = false, WithPayload = true }
+                        new IndexSettings<TestPerson> { Extractor = new TestPersonNameExtractor(), Unique = true, WithPayload = false },
+                        new IndexSettings<TestPerson> { Extractor = new TestPersonEmployerSectorExtractor(), Unique = false, WithPayload = false }
                     }
                 }
             );
