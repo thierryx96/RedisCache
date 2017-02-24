@@ -14,7 +14,11 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             return new RedisStore<TestCompany>(
                 new RedisTestDatabaseConnector(multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestCompany> { Expiry = expiry, MasterKeyExtractor = new TestCompanyKeyExtractor() }
+                new CollectionSettings<TestCompany>
+                {
+                    Expiry = expiry,
+                    MasterKeyExtractor = new TestCompanyKeyExtractor()
+                }
             );
         }
     }
@@ -87,7 +91,7 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             Category = "tech"
         };
 
-        internal static readonly TestCompany[] AllCompanies = { Apple, Boeing, Cargill, Dell, Ebay };
+        internal static readonly TestCompany[] AllCompanies = {Apple, Boeing, Cargill, Dell, Ebay};
 
         public TestCompany()
         {
@@ -127,11 +131,11 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
 
         public bool Equals(TestPerson other)
         {
-            return other != null 
-                && string.Equals(Id,other.Id, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(FirstName , other.FirstName, StringComparison.OrdinalIgnoreCase) 
-                && string.Equals(LastName, other.LastName, StringComparison.OrdinalIgnoreCase) 
-                && object.Equals(this.Employer,other.Employer) ;
+            return other != null
+                   && string.Equals(Id, other.Id, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(FirstName, other.FirstName, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(LastName, other.LastName, StringComparison.OrdinalIgnoreCase)
+                   && Equals(Employer, other.Employer);
         }
     }
 }

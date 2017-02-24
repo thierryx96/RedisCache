@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using NUnit.Framework;
 using PEL.Framework.Redis.Extensions;
 
 namespace PEL.Framework.Redis.IntegrationTests.Core
 {
     [TestFixture]
-    class Class1
+    internal class Class1
     {
         [Test]
         public void ToUnitOrEmpty_WhenNull_ReturnsEmpty()
@@ -24,7 +20,7 @@ namespace PEL.Framework.Redis.IntegrationTests.Core
         [Test]
         public void ToUnitOrEmpty_WhenValue_ReturnsEmpty()
         {
-            string key = "chop";
+            var key = "chop";
 
             var single = key.ToUnitOrEmpty().Single();
 

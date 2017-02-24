@@ -8,11 +8,11 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
     public class RedisTestServer : IDisposable
     {
         private readonly string _clientExePath;
-        private readonly string _serverExePath;
-        private readonly int? _port;
         private readonly string _password;
-        private Process _serverProcess;
+        private readonly int? _port;
+        private readonly string _serverExePath;
         private Process _clientConfigureProcess;
+        private Process _serverProcess;
 
         public RedisTestServer(string redisFolder, int? port = null, string password = null)
         {
@@ -22,22 +22,24 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             _password = password;
         }
 
+        public void Dispose()
+        {
+            _serverProcess?.Close();
+            _clientConfigureProcess?.Close();
+        }
+
         // kill all instances
         public static void KillAll()
         {
             foreach (var process in Process.GetProcessesByName("redis-server"))
-            {
                 process.Kill();
-            }
         }
 
         public async Task Start()
         {
             var args = string.Empty;
             if (_port != null)
-            {
                 args += $" --port {_port}";
-            }
 
             _serverProcess = new Process
             {
@@ -55,7 +57,10 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             {
                 StartInfo =
                 {
-                    UseShellExecute = false, RedirectStandardOutput = true, FileName = _clientExePath, Arguments = " CONFIG SET notify-keyspace-events xKE"
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    FileName = _clientExePath,
+                    Arguments = " CONFIG SET notify-keyspace-events xKE"
                 }
             };
 
@@ -65,12 +70,6 @@ namespace PEL.Framework.Redis.IntegrationTests.Infrastructure
             await Task.Delay(2000);
 
             _clientConfigureProcess.Start();
-        }
-
-        public void Dispose()
-        {
-            _serverProcess?.Close();
-            _clientConfigureProcess?.Close();
         }
     }
 }

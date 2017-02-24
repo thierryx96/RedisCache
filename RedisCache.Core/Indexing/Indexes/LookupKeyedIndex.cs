@@ -11,10 +11,10 @@ namespace PEL.Framework.Redis.Indexing.Indexes
 {
     internal class LookupKeyedIndex<TValue> : IIndex<TValue>
     {
+        private readonly string _indexCollectionPrefix;
         private readonly LookupIndexReader<string> _indexValueReader;
         private readonly IndexWriter<TValue> _indexWriter;
         private readonly Func<string, TValue> _masterValueGetter;
-        private readonly string _indexCollectionPrefix;
 
         public LookupKeyedIndex(
             string indexName,
@@ -56,6 +56,7 @@ namespace PEL.Framework.Redis.Indexing.Indexes
         public IKeyExtractor<TValue> Extractor { get; set; }
         public void Remove(IDatabaseAsync context, IEnumerable<TValue> items) => _indexWriter.Remove(context, items);
         public void Set(IDatabaseAsync context, IEnumerable<TValue> items) => _indexWriter.Set(context, items);
+
         public void AddOrUpdate(IDatabaseAsync context, TValue newItem, TValue oldItem)
             => _indexWriter.AddOrUpdate(context, newItem, oldItem);
 

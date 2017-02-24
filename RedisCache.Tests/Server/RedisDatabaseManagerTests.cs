@@ -11,11 +11,18 @@ using StackExchange.Redis;
 namespace PEL.Framework.Redis.IntegrationTests.Server
 {
     /// <summary>
-    /// Utils methods on a Sever and Database level
+    ///     Utils methods on a Sever and Database level
     /// </summary>
     [TestFixture]
     internal class RedisDatabaseManagerTests
     {
+        [SetUp]
+        public async Task SetUp()
+        {
+            await _databaseManager.FlushAll();
+            await Task.WhenAll(_cache1.ClearAsync(), _cache2.ClearAsync());
+        }
+
         private readonly RedisTestServer _server = new RedisTestServer(@"C:\Program Files\Redis");
         private RedisDatabaseManager _databaseManager;
         private RedisTestDatabaseConnector _connection;
@@ -34,54 +41,24 @@ namespace PEL.Framework.Redis.IntegrationTests.Server
             _cache1 = new RedisStore<TestCompany>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestCompany> { MasterKeyExtractor = new TestCompanyKeyExtractor() }
+                new CollectionSettings<TestCompany> {MasterKeyExtractor = new TestCompanyKeyExtractor()}
             );
 
             _cache2 = new RedisStore<TestPerson>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestPerson> { MasterKeyExtractor = new TestPersonKeyExtractor() });
+                new CollectionSettings<TestPerson> {MasterKeyExtractor = new TestPersonKeyExtractor()});
             _databaseManager = new RedisDatabaseManager(_connection);
         }
 
-        [SetUp]
-        public async Task SetUp()
+        [OneTimeTearDown]
+        public async Task OneTimeTearDown()
         {
             await _databaseManager.FlushAll();
-            await Task.WhenAll(_cache1.ClearAsync(), _cache2.ClearAsync());
-        }
 
-        [Test]
-        public async Task ScanKeys_ShouldRetrieveAllKeys()
-        {
-            // arrange
-            await Task.WhenAll(
-                _cache1.AddOrUpdateAsync(new TestCompany { Id = "a" }),
-                _cache2.AddOrUpdateAsync(new TestPerson { Id = "b" }));
+            _multiplexer?.Dispose();
 
-            // act
-            var allkeys = _databaseManager.ScanKeys().ToArray();
-
-            // assert
-            Assert.That(allkeys, Has.Length.EqualTo(2));
-        }
-     
-        [Test]
-        public async Task ScanKeys_WhenUsingPatternMatchingOneKey_ShouldRetrieveThatKeys()
-        {
-            // arrange
-            await Task.WhenAll(
-                _cache1.AddOrUpdateAsync(new TestCompany { Id = "a" }), // key of hashset : testcompany
-                _cache2.AddOrUpdateAsync(new TestPerson { Id = "b" })   // key of hashset : testperson
-            );
-
-            // act
-            var allkeys = _databaseManager.ScanKeys($"{nameof(TestCompany).ToLowerInvariant()}*").ToArray();
-
-            // assert
-            Assert.That(allkeys, Has.Length.EqualTo(1));
-            Assert.That(allkeys.Single().Contains(nameof(TestCompany).ToLowerInvariant()));
-
+            _server?.Dispose();
         }
 
 
@@ -90,8 +67,8 @@ namespace PEL.Framework.Redis.IntegrationTests.Server
         {
             // arrange
             await Task.WhenAll(
-                _cache1.AddOrUpdateAsync(new TestCompany { Id = "a" }),
-                _cache2.AddOrUpdateAsync(new TestPerson { Id = "b" })
+                _cache1.AddOrUpdateAsync(new TestCompany {Id = "a"}),
+                _cache2.AddOrUpdateAsync(new TestPerson {Id = "b"})
             );
 
             // act
@@ -103,14 +80,36 @@ namespace PEL.Framework.Redis.IntegrationTests.Server
             Assert.That(allkeys, Is.Empty);
         }
 
-        [OneTimeTearDown]
-        public async Task OneTimeTearDown()
+        [Test]
+        public async Task ScanKeys_ShouldRetrieveAllKeys()
         {
-            await _databaseManager.FlushAll();
+            // arrange
+            await Task.WhenAll(
+                _cache1.AddOrUpdateAsync(new TestCompany {Id = "a"}),
+                _cache2.AddOrUpdateAsync(new TestPerson {Id = "b"}));
 
-            _multiplexer?.Dispose();
+            // act
+            var allkeys = _databaseManager.ScanKeys().ToArray();
 
-            _server?.Dispose();
+            // assert
+            Assert.That(allkeys, Has.Length.EqualTo(2));
+        }
+
+        [Test]
+        public async Task ScanKeys_WhenUsingPatternMatchingOneKey_ShouldRetrieveThatKeys()
+        {
+            // arrange
+            await Task.WhenAll(
+                _cache1.AddOrUpdateAsync(new TestCompany {Id = "a"}), // key of hashset : testcompany
+                _cache2.AddOrUpdateAsync(new TestPerson {Id = "b"}) // key of hashset : testperson
+            );
+
+            // act
+            var allkeys = _databaseManager.ScanKeys($"{nameof(TestCompany).ToLowerInvariant()}*").ToArray();
+
+            // assert
+            Assert.That(allkeys, Has.Length.EqualTo(1));
+            Assert.That(allkeys.Single().Contains(nameof(TestCompany).ToLowerInvariant()));
         }
     }
 }

@@ -15,10 +15,19 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
     [TestFixture]
     internal class RedisStoreTests
     {
+        [SetUp]
+        public async Task SetUp()
+        {
+            await _database.FlushAll();
+            //await Task.WhenAll(_cacheType1.ClearAsync(), _cacheType2.ClearAsync());
+        }
+
         protected RedisStore<TestCompany> _cacheType1;
         protected RedisStore<TestPerson> _cacheType2;
         protected RedisStore<TestCompany> _cacheType1WithExpiry;
-        private readonly RedisTestServer _server = new RedisTestServer(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Redis");
+
+        private readonly RedisTestServer _server =
+            new RedisTestServer(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles) + "\\Redis");
 
         private RedisTestDatabaseConnector _connection;
         private const string RedisConnectionOptions = "localhost:6379,allowAdmin=true";
@@ -38,31 +47,30 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
             _cacheType1 = new RedisStore<TestCompany>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestCompany> { MasterKeyExtractor = new TestCompanyKeyExtractor() }
+                new CollectionSettings<TestCompany> {MasterKeyExtractor = new TestCompanyKeyExtractor()}
             );
 
             _cacheType2 = new RedisStore<TestPerson>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestPerson> { MasterKeyExtractor = new TestPersonKeyExtractor() });
+                new CollectionSettings<TestPerson> {MasterKeyExtractor = new TestPersonKeyExtractor()});
 
             _cacheType1WithExpiry = new RedisStore<TestCompany>(
                 new RedisTestDatabaseConnector(_multiplexer),
                 new DefaultJsonSerializer(),
-                new CollectionSettings<TestCompany> { MasterKeyExtractor = new TestCompanyKeyExtractor(), Expiry = TimeSpan.FromSeconds(1) });
+                new CollectionSettings<TestCompany>
+                {
+                    MasterKeyExtractor = new TestCompanyKeyExtractor(),
+                    Expiry = TimeSpan.FromSeconds(1)
+                });
 
             _database = new RedisDatabaseManager(_connection);
         }
 
-        private static readonly List<TestCompany> TestType1Entities = Enumerable.Range(0, 10).Select(i => new TestCompany { Name = $"testType1#{i}", Id = $"id#{i}" }).ToList();
-        private ConnectionMultiplexer _multiplexer;
+        private static readonly List<TestCompany> TestType1Entities =
+            Enumerable.Range(0, 10).Select(i => new TestCompany {Name = $"testType1#{i}", Id = $"id#{i}"}).ToList();
 
-        [SetUp]
-        public async Task SetUp()
-        {
-            await _database.FlushAll();
-            //await Task.WhenAll(_cacheType1.ClearAsync(), _cacheType2.ClearAsync());
-        }
+        private ConnectionMultiplexer _multiplexer;
 
         [OneTimeTearDown]
         public async Task OneTimeTearDown()
@@ -72,148 +80,6 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
             _multiplexer?.Dispose();
 
             _server?.Dispose();
-        }
-
-        [Test]
-        public async Task Set_WhenManyEntitiesAreLoadedThenOneAdded_ThenAllCanBeRetrieved()
-        {
-            // arrange
-            var firstLoad = TestType1Entities.Take(5).ToArray();
-            var lastLoad = TestType1Entities.Skip(5).ToArray();
-            var expected = firstLoad.Union(lastLoad).ToArray();
-
-            // act
-            await _cacheType1.SetAsync(firstLoad);
-
-            // assert
-            var retrievedFirstLoad = (await _cacheType1.GetAllAsync()).ToArray();
-            Assert.That(retrievedFirstLoad, Is.EquivalentTo(firstLoad));
-
-            // act
-            foreach (var entity in lastLoad)
-            {
-                await _cacheType1.AddOrUpdateAsync(entity);
-            }
-
-            var retrievedAllEntities = (await _cacheType1.GetAllAsync()).ToArray();
-
-            // assert
-            Assert.That(retrievedAllEntities, Is.EquivalentTo(expected));
-        }
-
-        [Test]
-        public async Task Set_GivenEmptyStore_WhenItemsAddedAreEmpty_ThenTheKeyMustBeFoundAndContainsNoItems()
-        {
-            // arrange
-            var emptyCollection = new TestCompany[] { };
-
-            // act
-            await _cacheType1.SetAsync(emptyCollection);
-            var allKeys = _database.ScanKeys();
-
-            // assert
-            Assert.That(allKeys, Is.Empty);
-        }
-
-        [Test]
-        public async Task Set_GivenEmptyStoreAndExpiryIs1Second_WhenFetchingAfter1Second_ThenItemsSetCannotBeRetrieved()
-        {
-            // arrange
-            var load = TestType1Entities.Take(5).ToArray();
-
-            // act
-            await _cacheType1WithExpiry.SetAsync(load);
-
-            // assert
-            var immediateItems = (await _cacheType1WithExpiry.GetAllAsync()).ToArray();
-
-            await Task.Delay(1500);
-
-            var delayedItems = (await _cacheType1WithExpiry.GetAllAsync()).ToArray();
-
-            Assert.That(immediateItems, Is.EquivalentTo(load));
-            Assert.That(delayedItems, Is.Empty);
-        }
-
-        [Test]
-        public async Task GetAll_WhenAnEntityOfDifferentTypeAreAdded_ThenAllCanBeRetrieved()
-        {
-            // arrange
-            var type1Entities = new[] { new TestCompany { Name = "test1_1", Id = "1" }, new TestCompany { Name = "test1_2", Id = "2" } };
-            var type2Entities = new[] { new TestPerson { FirstName = "test2_1", Id = "1" }, new TestPerson { FirstName = "test2_2", Id = "2" } };
-
-            await _cacheType1.AddOrUpdateAsync(type1Entities.First());
-            await _cacheType1.AddOrUpdateAsync(type1Entities.Last());
-            await _cacheType2.AddOrUpdateAsync(type2Entities.First());
-            await _cacheType2.AddOrUpdateAsync(type2Entities.Last());
-
-            // act
-            var retrievedAllType1Entities = (await _cacheType1.GetAllAsync()).ToArray();
-            var retrievedAllType2Entities = (await _cacheType2.GetAllAsync()).ToArray();
-
-            // assert
-            Assert.That(retrievedAllType1Entities, Has.Length.EqualTo(2));
-            Assert.That(retrievedAllType2Entities, Has.Length.EqualTo(2));
-            Assert.That(retrievedAllType1Entities, Is.EquivalentTo(type1Entities));
-            Assert.That(retrievedAllType2Entities, Is.EquivalentTo(type2Entities));
-        }
-
-     
-        [Test]
-        public async Task GetMany_WhenMatchingAllCompanies_ThenAllCanBeRetrieved()
-        {
-            // arrange
-            var allCompanies = TestCompany.AllCompanies;        
-            await _cacheType1.SetAsync(TestCompany.AllCompanies);
-
-            // act
-            var retrievedAll = (await _cacheType1.GetAsync(allCompanies.Select(GetId))).ToArray();
-
-            // assert
-            Assert.That(retrievedAll, Is.EquivalentTo(allCompanies));
-        }
-
-        [Test]
-        public async Task GetMany_WhenMatchingSomeCompanies_ThenSomeCanBeRetrieved()
-        {
-            // arrange
-            var someCompanies = new[] { TestCompany.Ebay, TestCompany.Apple };
-
-            await _cacheType1.SetAsync(TestCompany.AllCompanies);
-
-            // act
-            var retrievedSome = (await _cacheType1.GetAsync(someCompanies.Select(GetId))).ToArray();
-
-            // assert
-            Assert.That(retrievedSome, Is.EquivalentTo(someCompanies));
-        }
-
-        [Test]
-        public async Task GetMany_WhenMatchingOneCompany_ThenOnlyOneCanBeRetrieved()
-        {
-            // arrange
-            var oneCompanies = new[] { TestCompany.Ebay, new TestCompany() { Id = "notfound" }};
-            await _cacheType1.SetAsync(TestCompany.AllCompanies);
-
-            // act
-            var retrievedOne = (await _cacheType1.GetAsync(oneCompanies.Select(GetId))).Single();
-
-            // assert
-            Assert.That(retrievedOne, Is.EqualTo(TestCompany.Ebay));
-        }
-
-        [Test]
-        public async Task GetMany_WhenMatchingNoCompany_ThenNoneCanBeRetrieved()
-        {
-            // arrange
-            var noneCompanies = new[] { new TestCompany() { Id = "notfound" }, new TestCompany() { Id = "notfoundtoo" } };
-            await _cacheType1.SetAsync(TestCompany.AllCompanies);
-
-            // act
-            var retrievedNone = (await _cacheType1.GetAsync(noneCompanies.Select(GetId))).ToArray();
-
-            // assert
-            Assert.That(retrievedNone, Is.Empty);
         }
 
         [Test]
@@ -248,31 +114,11 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
         }
 
         [Test]
-        public async Task AddOrUpdate_WhenTheSameKeyIsAddedTwice_ThenItIsAddedThenUpdated()
-        {
-            // arrange
-            var firstEntity = TestCompany.Apple;
-            var secondEntity = TestCompany.Apple;
-            secondEntity.Id = firstEntity.Id;
-
-            // act
-            await _cacheType1.AddOrUpdateAsync(firstEntity);
-            await _cacheType1.AddOrUpdateAsync(secondEntity);
-
-            var retrievedAllEntities = (await _cacheType1.GetAllAsync()).ToArray();
-            var retrievedEntity = (await _cacheType1.GetAsync(firstEntity.Id));
-
-            // assert
-            Assert.That(retrievedEntity, Is.EqualTo(firstEntity)); // name updated properly
-            Assert.That(retrievedAllEntities, Has.Length.EqualTo(1)); // no duplicate
-        }
-
-        [Test]
         public async Task AddOrUpdate_WhenEntityAlreadyExists_ThenEntityIsUpdated()
         {
             // arrange
             var entity = TestCompany.Apple;
-            await _cacheType1.SetAsync(new[] { entity });
+            await _cacheType1.SetAsync(new[] {entity});
 
             // act
             entity.Name = "test1_changed";
@@ -285,27 +131,135 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
         }
 
         [Test]
-        public async Task Remove_WhenAnEntityIsDeleted_ThenItCannotBeRetrieved()
+        public async Task AddOrUpdate_WhenTheSameKeyIsAddedTwice_ThenItIsAddedThenUpdated()
         {
             // arrange
-            var firstEntityType1 = TestCompany.Apple;
-            var secondEntityType1 = TestCompany.Boeing;
-            var entityType2 = new TestPerson { FirstName = "test2", Id = "1", LastName = "test2"};
-
-            await _cacheType1.SetAsync(new[] { firstEntityType1, secondEntityType1 });
-            await _cacheType2.SetAsync(new[] { entityType2 });
+            var firstEntity = TestCompany.Apple;
+            var secondEntity = TestCompany.Apple;
+            secondEntity.Id = firstEntity.Id;
 
             // act
-            await _cacheType1.RemoveAsync(firstEntityType1.Id);
+            await _cacheType1.AddOrUpdateAsync(firstEntity);
+            await _cacheType1.AddOrUpdateAsync(secondEntity);
 
-            var deletedEntityType1Found = await _cacheType1.GetAsync(firstEntityType1.Id);
-            var secondEntityType1Found = await _cacheType1.GetAsync(secondEntityType1.Id);
-            var entityType2Found = await _cacheType2.GetAsync(entityType2.Id);
+            var retrievedAllEntities = (await _cacheType1.GetAllAsync()).ToArray();
+            var retrievedEntity = await _cacheType1.GetAsync(firstEntity.Id);
 
             // assert
-            Assert.That(deletedEntityType1Found, Is.Null);
-            Assert.That(secondEntityType1Found, Is.EqualTo(secondEntityType1));
-            Assert.That(entityType2Found, Is.EqualTo(entityType2));
+            Assert.That(retrievedEntity, Is.EqualTo(firstEntity)); // name updated properly
+            Assert.That(retrievedAllEntities, Has.Length.EqualTo(1)); // no duplicate
+        }
+
+        [Test]
+        public async Task Flush_WhenAnEntityOfType1AndType2AreAdded_ThenFlushed_ThenStoreMustBeEmpty()
+        {
+            // arrange
+            var entity1 = TestCompany.Apple;
+            var entity2 = new TestPerson {FirstName = "test2", Id = "1", LastName = "test2"};
+
+            await _cacheType1.SetAsync(new[] {entity1});
+            await _cacheType2.SetAsync(new[] {entity2});
+
+            // act (flush type 1)
+            await _cacheType1.ClearAsync();
+            var entity1Found = await _cacheType1.GetAsync(entity1.Id);
+            var entity2Found = await _cacheType2.GetAsync(entity2.Id);
+
+            // assert
+            Assert.That(entity1Found, Is.Null);
+            Assert.That(entity2Found, Is.EqualTo(entity2));
+
+            // act (flush type 2)
+            await _cacheType2.ClearAsync();
+            entity1Found = await _cacheType1.GetAsync(entity1.Id);
+            entity2Found = await _cacheType2.GetAsync(entity2.Id);
+
+            // assert
+            Assert.That(entity1Found, Is.Null);
+            Assert.That(entity2Found, Is.Null);
+        }
+
+        [Test]
+        public async Task GetAll_WhenAnEntityOfDifferentTypeAreAdded_ThenAllCanBeRetrieved()
+        {
+            // arrange
+            var type1Entities = new[]
+                {new TestCompany {Name = "test1_1", Id = "1"}, new TestCompany {Name = "test1_2", Id = "2"}};
+            var type2Entities = new[]
+                {new TestPerson {FirstName = "test2_1", Id = "1"}, new TestPerson {FirstName = "test2_2", Id = "2"}};
+
+            await _cacheType1.AddOrUpdateAsync(type1Entities.First());
+            await _cacheType1.AddOrUpdateAsync(type1Entities.Last());
+            await _cacheType2.AddOrUpdateAsync(type2Entities.First());
+            await _cacheType2.AddOrUpdateAsync(type2Entities.Last());
+
+            // act
+            var retrievedAllType1Entities = (await _cacheType1.GetAllAsync()).ToArray();
+            var retrievedAllType2Entities = (await _cacheType2.GetAllAsync()).ToArray();
+
+            // assert
+            Assert.That(retrievedAllType1Entities, Has.Length.EqualTo(2));
+            Assert.That(retrievedAllType2Entities, Has.Length.EqualTo(2));
+            Assert.That(retrievedAllType1Entities, Is.EquivalentTo(type1Entities));
+            Assert.That(retrievedAllType2Entities, Is.EquivalentTo(type2Entities));
+        }
+
+
+        [Test]
+        public async Task GetMany_WhenMatchingAllCompanies_ThenAllCanBeRetrieved()
+        {
+            // arrange
+            var allCompanies = TestCompany.AllCompanies;
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            // act
+            var retrievedAll = (await _cacheType1.GetAsync(allCompanies.Select(GetId))).ToArray();
+
+            // assert
+            Assert.That(retrievedAll, Is.EquivalentTo(allCompanies));
+        }
+
+        [Test]
+        public async Task GetMany_WhenMatchingNoCompany_ThenNoneCanBeRetrieved()
+        {
+            // arrange
+            var noneCompanies = new[] {new TestCompany {Id = "notfound"}, new TestCompany {Id = "notfoundtoo"}};
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            // act
+            var retrievedNone = (await _cacheType1.GetAsync(noneCompanies.Select(GetId))).ToArray();
+
+            // assert
+            Assert.That(retrievedNone, Is.Empty);
+        }
+
+        [Test]
+        public async Task GetMany_WhenMatchingOneCompany_ThenOnlyOneCanBeRetrieved()
+        {
+            // arrange
+            var oneCompanies = new[] {TestCompany.Ebay, new TestCompany {Id = "notfound"}};
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            // act
+            var retrievedOne = (await _cacheType1.GetAsync(oneCompanies.Select(GetId))).Single();
+
+            // assert
+            Assert.That(retrievedOne, Is.EqualTo(TestCompany.Ebay));
+        }
+
+        [Test]
+        public async Task GetMany_WhenMatchingSomeCompanies_ThenSomeCanBeRetrieved()
+        {
+            // arrange
+            var someCompanies = new[] {TestCompany.Ebay, TestCompany.Apple};
+
+            await _cacheType1.SetAsync(TestCompany.AllCompanies);
+
+            // act
+            var retrievedSome = (await _cacheType1.GetAsync(someCompanies.Select(GetId))).ToArray();
+
+            // assert
+            Assert.That(retrievedSome, Is.EquivalentTo(someCompanies));
         }
 
         [Test]
@@ -322,6 +276,30 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
 
             // assert
             Assert.That(allKeys, Is.Empty);
+        }
+
+        [Test]
+        public async Task Remove_WhenAnEntityIsDeleted_ThenItCannotBeRetrieved()
+        {
+            // arrange
+            var firstEntityType1 = TestCompany.Apple;
+            var secondEntityType1 = TestCompany.Boeing;
+            var entityType2 = new TestPerson {FirstName = "test2", Id = "1", LastName = "test2"};
+
+            await _cacheType1.SetAsync(new[] {firstEntityType1, secondEntityType1});
+            await _cacheType2.SetAsync(new[] {entityType2});
+
+            // act
+            await _cacheType1.RemoveAsync(firstEntityType1.Id);
+
+            var deletedEntityType1Found = await _cacheType1.GetAsync(firstEntityType1.Id);
+            var secondEntityType1Found = await _cacheType1.GetAsync(secondEntityType1.Id);
+            var entityType2Found = await _cacheType2.GetAsync(entityType2.Id);
+
+            // assert
+            Assert.That(deletedEntityType1Found, Is.Null);
+            Assert.That(secondEntityType1Found, Is.EqualTo(secondEntityType1));
+            Assert.That(entityType2Found, Is.EqualTo(entityType2));
         }
 
         [Test]
@@ -344,32 +322,62 @@ namespace PEL.Framework.Redis.IntegrationTests.Store
         }
 
         [Test]
-        public async Task Flush_WhenAnEntityOfType1AndType2AreAdded_ThenFlushed_ThenStoreMustBeEmpty()
+        public async Task Set_GivenEmptyStore_WhenItemsAddedAreEmpty_ThenTheKeyMustBeFoundAndContainsNoItems()
         {
             // arrange
-            var entity1 = TestCompany.Apple;
-            var entity2 = new TestPerson { FirstName = "test2", Id = "1", LastName = "test2" };
+            var emptyCollection = new TestCompany[] {};
 
-            await _cacheType1.SetAsync(new[] { entity1 });
-            await _cacheType2.SetAsync(new[] { entity2 });
-
-            // act (flush type 1)
-            await _cacheType1.ClearAsync();
-            var entity1Found = await _cacheType1.GetAsync(entity1.Id);
-            var entity2Found = await _cacheType2.GetAsync(entity2.Id);
+            // act
+            await _cacheType1.SetAsync(emptyCollection);
+            var allKeys = _database.ScanKeys();
 
             // assert
-            Assert.That(entity1Found, Is.Null);
-            Assert.That(entity2Found, Is.EqualTo(entity2));
+            Assert.That(allKeys, Is.Empty);
+        }
 
-            // act (flush type 2)
-            await _cacheType2.ClearAsync();
-            entity1Found = await _cacheType1.GetAsync(entity1.Id);
-            entity2Found = await _cacheType2.GetAsync(entity2.Id);
+        [Test]
+        public async Task Set_GivenEmptyStoreAndExpiryIs1Second_WhenFetchingAfter1Second_ThenItemsSetCannotBeRetrieved()
+        {
+            // arrange
+            var load = TestType1Entities.Take(5).ToArray();
+
+            // act
+            await _cacheType1WithExpiry.SetAsync(load);
 
             // assert
-            Assert.That(entity1Found, Is.Null);
-            Assert.That(entity2Found, Is.Null);
+            var immediateItems = (await _cacheType1WithExpiry.GetAllAsync()).ToArray();
+
+            await Task.Delay(1500);
+
+            var delayedItems = (await _cacheType1WithExpiry.GetAllAsync()).ToArray();
+
+            Assert.That(immediateItems, Is.EquivalentTo(load));
+            Assert.That(delayedItems, Is.Empty);
+        }
+
+        [Test]
+        public async Task Set_WhenManyEntitiesAreLoadedThenOneAdded_ThenAllCanBeRetrieved()
+        {
+            // arrange
+            var firstLoad = TestType1Entities.Take(5).ToArray();
+            var lastLoad = TestType1Entities.Skip(5).ToArray();
+            var expected = firstLoad.Union(lastLoad).ToArray();
+
+            // act
+            await _cacheType1.SetAsync(firstLoad);
+
+            // assert
+            var retrievedFirstLoad = (await _cacheType1.GetAllAsync()).ToArray();
+            Assert.That(retrievedFirstLoad, Is.EquivalentTo(firstLoad));
+
+            // act
+            foreach (var entity in lastLoad)
+                await _cacheType1.AddOrUpdateAsync(entity);
+
+            var retrievedAllEntities = (await _cacheType1.GetAllAsync()).ToArray();
+
+            // assert
+            Assert.That(retrievedAllEntities, Is.EquivalentTo(expected));
         }
     }
 }
