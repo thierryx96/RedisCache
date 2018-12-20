@@ -1,4 +1,4 @@
-# Redis...
+# Redis
 
 
 ## TL;DR (to install, configure and start Redis on your box)
