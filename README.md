@@ -232,3 +232,6 @@ Redlock is a library that help achieving that, it has a good integration with th
 
 This is done by lua, and it is really well explained there : https://www.compose.com/articles/a-quick-guide-to-redis-lua-scripting/
 
+## Bounty
+
+Just making a submission here
