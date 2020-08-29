@@ -1,4 +1,4 @@
-# Redis
+# Redis……..
 
 
 ## TL;DR (to install, configure and start Redis on your box)
@@ -235,3 +235,4 @@ This is done by lua, and it is really well explained there : https://www.compose
 ## Bounty
 
 Just making a submission here
+
